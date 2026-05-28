@@ -160,9 +160,13 @@ After publishing the RoleResource with `php artisan shield:publish --panel=admin
 use Agroezinger\FilamentShieldEnhanced\Forms\EnhancedPagePermissionsForm;
 use Filament\Forms\Components\Tabs;
 
-// Inside the form schema:
-Tabs\Tab::make(__('filament-shield::filament-shield.resources.tabs.pages'))
-    ->schema(EnhancedPagePermissionsForm::make()),
+// Inside the form schema - after:
+static::getShieldFormComponents(),
+
+// Zusätzliche Section für fine-grained page permissions:
+Section::make('Pages (Enhanced)')
+    ->schema(EnhancedPagePermissionsForm::make())
+    ->columnSpanFull(),
 ```
 
 Each page that declares `getShieldPagePermissions()` will appear as its own **Section** containing individual checkboxes — one per action. Pages without the method are not affected.
