@@ -2,6 +2,7 @@
 
 namespace Agroezinger\FilamentShieldEnhanced;
 
+use Agroezinger\FilamentShieldEnhanced\Commands\ShieldGenerateEnhancedPages;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 
@@ -12,7 +13,8 @@ class FilamentShieldEnhancedServiceProvider extends PackageServiceProvider
         $package
             ->name('filament-shield-enhanced')
             ->hasConfigFile()
-            ->hasTranslations();
+            ->hasTranslations()
+            ->hasCommands([ShieldGenerateEnhancedPages::class]);
     }
 
     public function packageBooted(): void
