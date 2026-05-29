@@ -90,22 +90,31 @@ class EnhancedPagePermissionsForm
             ->mapWithKeys(fn(array $perm) => [$perm['key'] => $perm['label']])
             ->all();
 
+        $descriptions = collect($permissions)
+            ->filter(fn(array $perm) => filled($perm['description']))
+            ->mapWithKeys(fn(array $perm) => [$perm['key'] => $perm['description']])
+            ->all();
+
         $checkboxListColumns = config('filament-shield-enhanced.ui.checkbox_list_columns', [
             'default' => 1,
             'sm' => 2,
         ]);
 
+        $checkboxList = CheckboxList::make('page_permissions_' . Str::snake(class_basename($pageClass)))
+            ->label('')
+            ->options($options)
+            ->columns($checkboxListColumns)
+            ->gridDirection('row')
+            ->bulkToggleable();
+
+        if (!empty($descriptions)) {
+            $checkboxList->descriptions($descriptions);
+        }
+
         return Section::make($title)
-            ->description($pageClass) // FQCN as developer hint
+            ->description(static::resolveSectionDescription($pageClass))
             ->compact()
-            ->schema([
-                CheckboxList::make('page_permissions_' . Str::snake(class_basename($pageClass)))
-                    ->label('')
-                    ->options($options)
-                    ->columns($checkboxListColumns)
-                    ->gridDirection('row')
-                    ->bulkToggleable(),
-            ]);
+            ->schema([$checkboxList]);
     }
 
     // -------------------------------------------------------------------------
@@ -166,18 +175,33 @@ class EnhancedPagePermissionsForm
         $result = [];
 
         foreach ($actions as $k => $v) {
-            $action = is_int($k) ? $v : $k;
-            $label  = is_int($k) ? static::humanizeAction($v) : $v;
+            if (is_int($k)) {
+                // 'view'
+                $action      = $v;
+                $label       = static::humanizeAction($v);
+                $description = null;
+            } elseif (is_array($v)) {
+                // 'view' => ['text' => '...', 'description' => '...']
+                $action      = $k;
+                $label       = $v['text'] ?? static::humanizeAction($k);
+                $description = $v['description'] ?? null;
+            } else {
+                // 'view' => 'Kann anzeigen'
+                $action      = $k;
+                $label       = $v;
+                $description = null;
+            }
 
             $result[] = [
-                'key' => PagePermissionKeyBuilder::build(
+                'key'         => PagePermissionKeyBuilder::build(
                     entity: $pageClass,
                     affix: $action,
                     subject: $subject,
                     case: $case,
                     separator: $separator,
                 ),
-                'label' => $label,
+                'label'       => $label,
+                'description' => $description,
             ];
         }
 
@@ -188,17 +212,33 @@ class EnhancedPagePermissionsForm
     // Label helpers
     // -------------------------------------------------------------------------
 
+    /**
+     * Resolves the section title from the page's own display properties.
+     * Checks navigationLabel → title → heading (instance default) in order,
+     * so pages that only set $heading (e.g. wizard pages) still get a
+     * meaningful label instead of the raw class name.
+     */
     protected static function resolveSectionTitle(string $pageClass): string
     {
-        if (method_exists($pageClass, 'getTitle')) {
-            try {
-                return $pageClass::getTitle();
-            } catch (\Throwable) {
-                // Static call may need a panel context.
-            }
-        }
+        $defaults = (new \ReflectionClass($pageClass))->getDefaultProperties();
 
-        return Str::headline(class_basename($pageClass));
+        return $defaults['navigationLabel']
+            ?? $defaults['title']
+            ?? $defaults['heading']
+            ?? Str::headline(class_basename($pageClass));
+    }
+
+    /**
+     * Returns the page slug as a human-readable hint in the section description.
+     * Falls back to the FQCN if the slug cannot be resolved.
+     */
+    protected static function resolveSectionDescription(string $pageClass): string
+    {
+        try {
+            return $pageClass::getSlug();
+        } catch (\Throwable) {
+            return $pageClass;
+        }
     }
 
     protected static function humanizeAction(string $action): string
