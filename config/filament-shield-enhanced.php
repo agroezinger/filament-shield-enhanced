@@ -35,13 +35,13 @@ return [
     'ui' => [
         'grid_columns' => [
             'default' => 1,
-            'sm'      => 2,
-            'lg'      => 3,
+            'sm' => 2,
+            'lg' => 2,
         ],
 
         'checkbox_list_columns' => [
             'default' => 1,
-            'sm'      => 2,
+            'sm' => 2,
         ],
     ],
 

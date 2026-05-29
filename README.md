@@ -68,16 +68,22 @@ class SettingsPage extends Page
      * Declare every action that can be independently granted on this page.
      * The 'view' action controls whether the user can navigate to the page at all.
      *
-     * You can optionally add a human-readable description for each action by
-     * using an associative key => description format. Plain string entries and
-     * described entries can be mixed freely.
+     * Three entry formats can be mixed freely:
+     *
+     *   'action'                          → label auto-generated from action name
+     *   'action' => 'Label'               → explicit label
+     *   'action' => ['text'        => 'Label',
+     *                'description' => 'Shown below the checkbox in the role editor']
      */
     public static function getShieldPagePermissions(): array
     {
         return [
-            'view',
-            'editGlobalSettings' => 'Can change global application settings',
-            'exportData'         => 'Can export data as CSV / Excel',
+            'view'              => 'Can view this page',
+            'editGlobalSettings' => [
+                'text'        => 'Can change global settings',
+                'description' => 'Grants access to all fields in the Global Settings section.',
+            ],
+            'exportData'        => 'Can export data as CSV / Excel',
         ];
     }
 }
@@ -174,16 +180,9 @@ Open the published `RoleResource.php` and add a new `Section` directly after `st
 use Agroezinger\FilamentShieldEnhanced\Forms\EnhancedPagePermissionsForm;
 use Filament\Schemas\Components\Section;
 
-<<<<<<< Updated upstream
-// Inside the form schema - after:
-static::getShieldFormComponents(),
-
-// Zusätzliche Section für fine-grained page permissions:
-=======
 // Inside the form schema, after static::getShieldFormComponents():
 static::getShieldFormComponents(),
 
->>>>>>> Stashed changes
 Section::make('Pages (Enhanced)')
     ->schema(EnhancedPagePermissionsForm::make())
     ->columnSpanFull(),
