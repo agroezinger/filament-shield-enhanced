@@ -139,7 +139,8 @@ trait HasPageShield
     {
         $map = [];
 
-        foreach (static::getShieldPagePermissions() as $action) {
+        foreach (static::getShieldPagePermissions() as $k => $v) {
+            $action       = is_int($k) ? $v : $k;
             $map[$action] = $this->canShield($action);
         }
 
@@ -165,16 +166,19 @@ trait HasPageShield
         $separator = config('filament-shield.permissions.separator', ':');
         $case      = config('filament-shield.permissions.case', 'pascal');
 
-        return array_map(
-            fn (string $action) => PagePermissionKeyBuilder::build(
+        $result = [];
+
+        foreach (static::getShieldPagePermissions() as $k => $v) {
+            $result[] = PagePermissionKeyBuilder::build(
                 entity: static::class,
-                affix: $action,
+                affix: is_int($k) ? $v : $k,
                 subject: $subject,
                 case: $case,
                 separator: $separator,
-            ),
-            static::getShieldPagePermissions(),
-        );
+            );
+        }
+
+        return $result;
     }
 
     protected static function resolvePermissionKeyForAction(string $action): string

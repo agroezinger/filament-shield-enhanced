@@ -4,8 +4,8 @@ namespace Agroezinger\FilamentShieldEnhanced\Forms;
 
 use Agroezinger\FilamentShieldEnhanced\Support\PagePermissionKeyBuilder;
 use Filament\Forms\Components\CheckboxList;
-use Filament\Forms\Components\Grid;
-use Filament\Forms\Components\Section;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Section;
 use Filament\Pages\BasePage;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -30,6 +30,24 @@ use Illuminate\Support\Str;
 class EnhancedPagePermissionsForm
 {
     /**
+     * Returns a map of CheckboxList field name => list of permission keys for
+     * every enhanced Page. Used to pre-fill the form in EditRole::mutateFormDataBeforeFill().
+     *
+     * @return array<string, list<string>>
+     */
+    public static function getPagePermissionFields(): array
+    {
+        $result = [];
+
+        foreach (static::discoverEnhancedPages() as $page) {
+            $fieldName          = 'page_permissions_' . Str::snake(class_basename($page['class']));
+            $result[$fieldName] = array_column($page['permissions'], 'key');
+        }
+
+        return $result;
+    }
+
+    /**
      * Returns an array of Filament form components (Grid > Sections > CheckboxLists)
      * for every enhanced Page discovered in the application.
      *
@@ -45,11 +63,11 @@ class EnhancedPagePermissionsForm
 
         $gridColumns = config('filament-shield-enhanced.ui.grid_columns', [
             'default' => 1,
-            'sm'      => 2,
-            'lg'      => 3,
+            'sm' => 2,
+            'lg' => 3,
         ]);
 
-        $sections = $pages->map(fn (array $page) => static::buildSection($page))->all();
+        $sections = $pages->map(fn(array $page) => static::buildSection($page))->all();
 
         return [
             Grid::make($gridColumns)->schema($sections),
@@ -63,18 +81,18 @@ class EnhancedPagePermissionsForm
     protected static function buildSection(array $page): Section
     {
         /** @var class-string<BasePage> $pageClass */
-        $pageClass   = $page['class'];
+        $pageClass = $page['class'];
         $permissions = $page['permissions']; // [['key' => '...', 'label' => '...'], …]
 
         $title = static::resolveSectionTitle($pageClass);
 
         $options = collect($permissions)
-            ->mapWithKeys(fn (array $perm) => [$perm['key'] => $perm['label']])
+            ->mapWithKeys(fn(array $perm) => [$perm['key'] => $perm['label']])
             ->all();
 
         $checkboxListColumns = config('filament-shield-enhanced.ui.checkbox_list_columns', [
             'default' => 1,
-            'sm'      => 2,
+            'sm' => 2,
         ]);
 
         return Section::make($title)
@@ -123,11 +141,11 @@ class EnhancedPagePermissionsForm
 
         return $allPages
             ->unique()
-            ->map(fn (string $class) => [
-                'class'       => $class,
+            ->map(fn(string $class) => [
+                'class' => $class,
                 'permissions' => static::resolvePermissionsForPage($class),
             ])
-            ->filter(fn (array $page) => ! empty($page['permissions']))
+            ->filter(fn(array $page) => !empty($page['permissions']))
             ->values();
     }
 
@@ -140,22 +158,30 @@ class EnhancedPagePermissionsForm
      */
     protected static function resolvePermissionsForPage(string $pageClass): array
     {
-        /** @var list<string> $actions */
         $actions   = $pageClass::getShieldPagePermissions();
         $subject   = class_basename($pageClass);
         $separator = config('filament-shield.permissions.separator', ':');
         $case      = config('filament-shield.permissions.case', 'pascal');
 
-        return array_map(fn (string $action) => [
-            'key'   => PagePermissionKeyBuilder::build(
-                entity: $pageClass,
-                affix: $action,
-                subject: $subject,
-                case: $case,
-                separator: $separator,
-            ),
-            'label' => static::humanizeAction($action),
-        ], $actions);
+        $result = [];
+
+        foreach ($actions as $k => $v) {
+            $action = is_int($k) ? $v : $k;
+            $label  = is_int($k) ? static::humanizeAction($v) : $v;
+
+            $result[] = [
+                'key' => PagePermissionKeyBuilder::build(
+                    entity: $pageClass,
+                    affix: $action,
+                    subject: $subject,
+                    case: $case,
+                    separator: $separator,
+                ),
+                'label' => $label,
+            ];
+        }
+
+        return $result;
     }
 
     // -------------------------------------------------------------------------
