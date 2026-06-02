@@ -1,6 +1,6 @@
 {
     "name": "agroezinger/filament-shield-enhanced",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "description": "Fine-grained page permissions & structured UI addon for bezhansalleh/filament-shield.",
     "keywords": [
         "agroezinger",

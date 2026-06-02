@@ -9,26 +9,26 @@ A standalone addon for [bezhansalleh/filament-shield](https://github.com/bezhanS
 
 ## Features
 
-| Feature | Description |
-|---|---|
-| **Multi-action page permissions** | Declare several permissions per page via `getShieldPagePermissions()`. |
-| **`canShield('action')`** | Fluent, type-safe permission check inside a Page class or its Blade view. |
-| **`getShieldPermissions()`** | Returns a pre-resolved `action → bool` map for injection into child Livewire components. |
-| **`HasInjectedShieldPermissions`** | Trait for child Livewire components that receive the map from the parent page. |
-| **`EnhancedPagePermissionsForm`** | Form builder helper for the published RoleResource — renders each enhanced page as a separate Section with individual checkboxes. |
-| **Three-part key convention** | `{Prefix}{sep}{Action}{sep}{Subject}` (e.g. `Page:EditSettings:SettingsPage`) — fully respects filament-shield's `separator` and `case` config. |
-| **Zero conflict** | Does not replace any original class. Falls back gracefully on pages that do not declare `getShieldPagePermissions()`. |
+| Feature                            | Description                                                                                                                                     |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Multi-action page permissions**  | Declare several permissions per page via `getShieldPagePermissions()`.                                                                          |
+| **`canShield('action')`**          | Fluent, type-safe permission check inside a Page class or its Blade view.                                                                       |
+| **`getShieldPermissions()`**       | Returns a pre-resolved `action → bool` map for injection into child Livewire components.                                                        |
+| **`HasInjectedShieldPermissions`** | Trait for child Livewire components that receive the map from the parent page.                                                                  |
+| **`EnhancedPagePermissionsForm`**  | Form builder helper for the published RoleResource — renders each enhanced page as a separate Section with individual checkboxes.               |
+| **Three-part key convention**      | `{Prefix}{sep}{Action}{sep}{Subject}` (e.g. `Page:EditSettings:SettingsPage`) — fully respects filament-shield's `separator` and `case` config. |
+| **Zero conflict**                  | Does not replace any original class. Falls back gracefully on pages that do not declare `getShieldPagePermissions()`.                           |
 
 ---
 
 ## Requirements
 
-| Dependency | Version |
-|---|---|
-| PHP | ^8.2 |
-| Laravel | ^11.0 \| ^12.0 |
-| Filament | ^4.0 \| ^5.0 |
-| bezhansalleh/filament-shield | ^4.0 |
+| Dependency                   | Version        |
+| ---------------------------- | -------------- |
+| PHP                          | ^8.2           |
+| Laravel                      | ^11.0 \| ^12.0 |
+| Filament                     | ^4.0 \| ^5.0   |
+| bezhansalleh/filament-shield | ^4.0           |
 
 ---
 
@@ -172,23 +172,65 @@ class SettingsSidebar extends Component
 
 After publishing the RoleResource with `php artisan shield:publish --panel=admin` two files need small changes.
 
-#### 4a — RoleResource: add the enhanced section
+#### 4a — RoleResource: add the enhanced tab and remove duplicates
 
-Open the published `RoleResource.php` and add a new `Section` directly after `static::getShieldFormComponents()` in the `form()` method:
+Open the published `RoleResource.php` and override two methods:
 
 ```php
 use Agroezinger\FilamentShieldEnhanced\Forms\EnhancedPagePermissionsForm;
-use Filament\Schemas\Components\Section;
+use BezhanSalleh\FilamentShield\Facades\FilamentShield;
+use Filament\Schemas\Components\Tabs;
+use Filament\Schemas\Components\Tabs\Tab;
 
-// Inside the form schema, after static::getShieldFormComponents():
-static::getShieldFormComponents(),
+/**
+ * Exclude pages that declare getShieldPagePermissions() from the standard
+ * "Pages" tab — they are managed exclusively by the Enhanced tab below.
+ * Without this override the same Page:View:* permission would appear twice.
+ */
+public static function getPageOptions(): array
+{
+    return collect(FilamentShield::getPages())
+        ->reject(fn(array $page) => method_exists($page['pageFqcn'], 'getShieldPagePermissions'))
+        ->flatMap(fn(array $page) => $page['permissions'])
+        ->toArray();
+}
 
-Section::make('Pages (Enhanced)')
-    ->schema(EnhancedPagePermissionsForm::make())
-    ->columnSpanFull(),
+/**
+ * Append a dedicated "Seiten (Feinsteuerung)" tab after Shield's built-in tabs.
+ * Each page with getShieldPagePermissions() appears as its own Section with
+ * individual checkboxes — one per declared action.
+ */
+public static function getShieldFormComponents(): \Filament\Schemas\Components\Component
+{
+    $enhancedComponents = EnhancedPagePermissionsForm::make();
+    $enhancedCount      = count(EnhancedPagePermissionsForm::getPagePermissionFields());
+
+    $tabs = [
+        static::getTabFormComponentForResources(),
+        static::getTabFormComponentForPage(),
+        static::getTabFormComponentForWidget(),
+        static::getTabFormComponentForCustomPermissions(),
+    ];
+
+    if (! empty($enhancedComponents)) {
+        $tabs[] = Tab::make('enhanced_pages')
+            ->label('Seiten (Feinsteuerung)')
+            ->badge($enhancedCount ?: null)
+            ->schema($enhancedComponents);
+    }
+
+    return Tabs::make('Permissions')
+        ->contained()
+        ->tabs($tabs)
+        ->columnSpan('full');
+}
 ```
 
-Each page that declares `getShieldPagePermissions()` will appear as its own **Section** containing individual checkboxes — one per action. Pages without the method are not affected.
+**Why two overrides?**
+
+Shield's standard "Pages" tab shows one `Page:View:*` checkbox per discovered page. For pages that also declare `getShieldPagePermissions()`, that same `Page:View:*` key would appear in _both_ tabs. `getPageOptions()` filters those pages out so they only appear in the Enhanced tab, where all their actions (view, execute, …) are shown together.
+
+Each page that declares `getShieldPagePermissions()` will appear in the Enhanced tab as its own **Section** containing individual checkboxes — one per action. Pages without the method continue to appear in the standard "Pages" tab unchanged.
 
 #### 4b — EditRole: add the pre-fill trait
 
@@ -252,10 +294,10 @@ When a Page class exposes `getShieldPagePermissions()`, the addon intercepts the
 If you previously used the `agroezinger/filament-shield` fork (which is a modified copy of the original package):
 
 1. Switch `composer.json` back to the official package:
-   ```bash
-   composer remove agroezinger/filament-shield
-   composer require bezhansalleh/filament-shield agroezinger/filament-shield-enhanced
-   ```
+    ```bash
+    composer remove agroezinger/filament-shield
+    composer require bezhansalleh/filament-shield agroezinger/filament-shield-enhanced
+    ```
 2. Replace `use BezhanSalleh\FilamentShield\Traits\HasPageShield` with  
    `use Agroezinger\FilamentShieldEnhanced\Traits\HasPageShield` in your pages.
 3. Replace `use BezhanSalleh\FilamentShield\Traits\HasInjectedShieldPermissions` (if used) with  
