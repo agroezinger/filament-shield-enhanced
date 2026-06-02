@@ -2,6 +2,30 @@
 
 All notable changes to `filament-shield-enhanced` will be documented in this file.
 
+## [0.0.3] - 2026-06-02
+
+### Changed
+- **RoleResource integration pattern** (breaking for apps that followed the 0.0.2 instructions):  
+  The `Section::make('Pages (Enhanced)')` approach is replaced by two method overrides in the published `RoleResource`:
+  - `getShieldFormComponents()` — appends a dedicated **"Seiten (Feinsteuerung)"** tab after Shield's built-in tabs instead of rendering a free-floating section beneath them. The tab shows a badge with the number of enhanced pages.
+  - `getPageOptions()` — filters pages that declare `getShieldPagePermissions()` out of Shield's standard "Seiten" tab. Previously `Page:View:*` for enhanced pages appeared in both the standard tab and the enhanced section simultaneously (same permission key, two checkboxes). The override eliminates that duplication: enhanced pages are now managed exclusively in the Enhanced tab.
+
+### Fixed
+- **Duplicate `Page:View:*` checkboxes** — Pages implementing `getShieldPagePermissions()` are no longer shown in Shield's built-in "Seiten" tab. Their `view` action (and all others) is managed solely in the new Enhanced tab.
+
+### Migration from 0.0.2
+
+Replace the old static `Section` in `RoleResource.php`:
+
+```php
+// Remove this:
+Section::make('Pages (Enhanced)')
+    ->schema(EnhancedPagePermissionsForm::make())
+    ->columnSpanFull(),
+```
+
+Add the two method overrides described in [README § 4a](README.md#4a--roleresouce-add-the-enhanced-tab-and-remove-duplicates).
+
 ## [0.0.2] - 2026-05-29
 
 ### Added
