@@ -1,5 +1,8 @@
 # Filament Shield Enhanced
 
+> [!WARNING]
+> **Testing Phase:** Versions `0.0.*` are currently in the testing phase. At present, there are no known bugs.
+
 A standalone addon for [bezhansalleh/filament-shield](https://github.com/bezhanSalleh/filament-shield) that adds **fine-grained page permissions** and a **structured Role Resource UI** — without forking or replacing the original package.
 
 > **Why this exists.**  
