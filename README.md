@@ -205,26 +205,19 @@ public static function getPageOptions(): array
  */
 public static function getShieldFormComponents(): \Filament\Schemas\Components\Component
 {
-    $enhancedComponents = EnhancedPagePermissionsForm::make();
-    $enhancedCount      = count(EnhancedPagePermissionsForm::getPagePermissionFields());
-
-    $tabs = [
-        static::getTabFormComponentForResources(),
-        static::getTabFormComponentForPage(),
-        static::getTabFormComponentForWidget(),
-        static::getTabFormComponentForCustomPermissions(),
-    ];
-
-    if (! empty($enhancedComponents)) {
-        $tabs[] = Tab::make('enhanced_pages')
-            ->label('Seiten (Feinsteuerung)')
-            ->badge($enhancedCount ?: null)
-            ->schema($enhancedComponents);
-    }
-
-    return Tabs::make('Permissions')
+    return \Filament\Schemas\Components\Tabs::make('Permissions')
         ->contained()
-        ->tabs($tabs)
+        ->tabs([
+            static::getTabFormComponentForResources(),
+            static::getTabFormComponentForPage(),
+            static::getTabFormComponentForWidget(),
+            static::getTabFormComponentForCustomPermissions(),
+            Tab::make('enhanced_pages')
+                ->label('Enhanced Pages')
+                ->icon('heroicon-o-shield-check')
+                ->badge(static::getEnhancedPagesPermissionCount())
+                ->schema(EnhancedPagePermissionsForm::make()),
+        ])
         ->columnSpan('full');
 }
 ```
