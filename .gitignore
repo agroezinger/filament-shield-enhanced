@@ -5,3 +5,5 @@
 *.DS_Store
 *.env
 composer.lock
+SyncSettings.ffs_gui
+sync.ffs_db
