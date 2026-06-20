@@ -2,7 +2,7 @@
 
 All notable changes to `filament-shield-enhanced` will be documented in this file.
 
-## [0.0.6] - 2026-06-20
+## [0.1.0] - 2026-06-20
 
 ### Added
 - **`HasResourceShield` trait** — add to any Filament `Resource` class to declare fine-grained custom permissions beyond the standard CRUD policy methods. Provides `canShield(string $action): bool` (with super-admin bypass) and `getShieldPermissions(): array` (action → bool map) as static methods.
