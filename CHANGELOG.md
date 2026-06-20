@@ -2,6 +2,29 @@
 
 All notable changes to `filament-shield-enhanced` will be documented in this file.
 
+## [0.0.6] - 2026-06-20
+
+### Added
+- **`HasResourceShield` trait** — add to any Filament `Resource` class to declare fine-grained custom permissions beyond the standard CRUD policy methods. Provides `canShield(string $action): bool` (with super-admin bypass) and `getShieldPermissions(): array` (action → bool map) as static methods.
+- **`ResourcePermissionKeyBuilder`** — builds two-part permission keys (`Action:ModelBasename`, e.g. `ViewContactInfo:Member`) that match filament-shield's own resource permission format. No prefix is added, so custom actions are visually consistent with CRUD permissions.
+- **`EnhancedResourcePermissionsForm`** — form builder helper for the published `RoleResource`. Discovers all Resources that declare `getShieldResourcePermissions()` and renders each as a separate `Section` with individual checkboxes — one per declared action. Supports the same label formats as pages (`'action'`, `'action' => 'Label'`, `'action' => ['text' => '...', 'description' => '...']`).
+- **`ShieldGenerateEnhancedResources` Artisan command** (`shield:generate-enhanced-resources`) — creates Spatie permission records for every action declared in `getShieldResourcePermissions()`. Accepts `--panel=<id>` or `--all-panels`.
+- **`HasEnhancedRoleForm` extended** — `mutateFormDataBeforeFill()` now also pre-fills resource-permission checkboxes in addition to page-permission checkboxes. No change is required in the published `EditRole` page — the trait update is transparent.
+
+## [0.0.5] - 2026-06-10
+
+### Added
+- `FilamentShieldEnhancedPlugin` — empty `Plugin` implementation so the addon can optionally be registered via `->plugin(FilamentShieldEnhancedPlugin::make())` on a panel. No functional change; all logic remains in the `ServiceProvider`.
+
+### Changed
+- `composer.json`: removed hardcoded `version` field (version is now tracked via git tags only).
+- `composer.json`: broadened compatibility — `illuminate/contracts` and `illuminate/support` now accept `^13.0`; `orchestra/testbench` now accepts `^11.0`.
+
+## [0.0.4] - 2026-06-10
+
+### Changed
+- README improvements: clarified `getShieldFormComponents()` / `getPageOptions()` integration pattern with updated code examples.
+
 ## [0.0.3] - 2026-06-02
 
 ### Changed
