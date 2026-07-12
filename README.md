@@ -1,5 +1,7 @@
 # Filament Shield Enhanced
 
+[![Plumb score](https://plumbphp.dev/badges/agroezinger/filament-shield-enhanced/composite.svg)](https://plumbphp.dev/agroezinger/filament-shield-enhanced)
+
 > [!WARNING]
 > **Testing Phase:** Versions `0.0.*` are currently in the testing phase. At present, there are no known bugs.
 
@@ -12,29 +14,29 @@ A standalone addon for [bezhansalleh/filament-shield](https://github.com/bezhanS
 
 ## Features
 
-| Feature                               | Description                                                                                                                                            |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Multi-action page permissions**     | Declare several permissions per page via `getShieldPagePermissions()`.                                                                                 |
-| **Multi-action resource permissions** | Declare custom permissions per resource via `getShieldResourcePermissions()` — beyond the standard CRUD policy methods.                                |
-| **`canShield('action')`**             | Fluent, type-safe permission check — instance method on Pages, static method on Resources.                                                             |
-| **`getShieldPermissions()`**          | Returns a pre-resolved `action → bool` map for injection into child Livewire components.                                                               |
-| **`HasInjectedShieldPermissions`**    | Trait for child Livewire components that receive the map from the parent page.                                                                         |
-| **`EnhancedPagePermissionsForm`**     | Form builder helper for the published RoleResource — renders each enhanced page as a separate Section with individual checkboxes.                      |
-| **`EnhancedResourcePermissionsForm`** | Form builder helper for the published RoleResource — renders each enhanced resource as a separate Section with individual checkboxes.                  |
-| **Three-part page key convention**    | `{Prefix}{sep}{Action}{sep}{Subject}` (e.g. `Page:EditSettings:SettingsPage`) — fully respects filament-shield's `separator` and `case` config.       |
-| **Two-part resource key convention**  | `{Action}{sep}{ModelBasename}` (e.g. `ViewContactInfo:Member`) — matches Shield's own resource permission format, no extra prefix.                     |
-| **Zero conflict**                     | Does not replace any original class. Falls back gracefully on entities that do not declare the method.                                                 |
+| Feature                               | Description                                                                                                                                     |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Multi-action page permissions**     | Declare several permissions per page via `getShieldPagePermissions()`.                                                                          |
+| **Multi-action resource permissions** | Declare custom permissions per resource via `getShieldResourcePermissions()` — beyond the standard CRUD policy methods.                         |
+| **`canShield('action')`**             | Fluent, type-safe permission check — instance method on Pages, static method on Resources.                                                      |
+| **`getShieldPermissions()`**          | Returns a pre-resolved `action → bool` map for injection into child Livewire components.                                                        |
+| **`HasInjectedShieldPermissions`**    | Trait for child Livewire components that receive the map from the parent page.                                                                  |
+| **`EnhancedPagePermissionsForm`**     | Form builder helper for the published RoleResource — renders each enhanced page as a separate Section with individual checkboxes.               |
+| **`EnhancedResourcePermissionsForm`** | Form builder helper for the published RoleResource — renders each enhanced resource as a separate Section with individual checkboxes.           |
+| **Three-part page key convention**    | `{Prefix}{sep}{Action}{sep}{Subject}` (e.g. `Page:EditSettings:SettingsPage`) — fully respects filament-shield's `separator` and `case` config. |
+| **Two-part resource key convention**  | `{Action}{sep}{ModelBasename}` (e.g. `ViewContactInfo:Member`) — matches Shield's own resource permission format, no extra prefix.              |
+| **Zero conflict**                     | Does not replace any original class. Falls back gracefully on entities that do not declare the method.                                          |
 
 ---
 
 ## Requirements
 
-| Dependency                   | Version                |
-| ---------------------------- | ---------------------- |
-| PHP                          | ^8.2                   |
+| Dependency                   | Version                 |
+| ---------------------------- | ----------------------- |
+| PHP                          | ^8.2                    |
 | Laravel                      | ^11.0 \| ^12.0 \| ^13.0 |
-| Filament                     | ^4.0 \| ^5.0           |
-| bezhansalleh/filament-shield | ^4.0                   |
+| Filament                     | ^4.0 \| ^5.0            |
+| bezhansalleh/filament-shield | ^4.0                    |
 
 ---
 
@@ -384,10 +386,10 @@ Resource permissions use a two-part format matching Shield's own convention and 
 If you previously used the `agroezinger/filament-shield` fork (which is a modified copy of the original package):
 
 1. Switch `composer.json` back to the official package:
-    ```bash
-    composer remove agroezinger/filament-shield
-    composer require bezhansalleh/filament-shield agroezinger/filament-shield-enhanced
-    ```
+   ```bash
+   composer remove agroezinger/filament-shield
+   composer require bezhansalleh/filament-shield agroezinger/filament-shield-enhanced
+   ```
 2. Replace `use BezhanSalleh\FilamentShield\Traits\HasPageShield` with  
    `use Agroezinger\FilamentShieldEnhanced\Traits\HasPageShield` in your pages.
 3. Replace `use BezhanSalleh\FilamentShield\Traits\HasInjectedShieldPermissions` (if used) with  
