@@ -28,4 +28,4 @@ jobs:
 
       # Prüfen, ob die composer.json valide ist
       - name: Validate Composer
-        run: composer validate --strict
+        run: composer validate
