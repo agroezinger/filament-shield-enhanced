@@ -1,6 +1,6 @@
 # Filament Shield Enhanced
 
-[![Plumb score](https://plumbphp.dev/badges/agroezinger/filament-shield-enhanced/composite.svg)](https://plumbphp.dev/agroezinger/filament-shield-enhanced)
+[![Plumb score](https://plumbphp.dev/badges/agroezinger/filament-shield-enhanced/composite.svg)](https://plumbphp.dev/agroezinger/filament-shield-enhanced) [![Plumb security score](https://plumbphp.dev/badges/agroezinger/filament-shield-enhanced/security.svg)](https://plumbphp.dev/agroezinger/filament-shield-enhanced) [![Plumb maintenance score](https://plumbphp.dev/badges/agroezinger/filament-shield-enhanced/maintenance.svg)](https://plumbphp.dev/agroezinger/filament-shield-enhanced) [![Plumb ecosystem score](https://plumbphp.dev/badges/agroezinger/filament-shield-enhanced/ecosystem.svg)](https://plumbphp.dev/agroezinger/filament-shield-enhanced) [![Scanned by Plumb](https://plumbphp.dev/badges/agroezinger/filament-shield-enhanced/scanned.svg)](https://plumbphp.dev/agroezinger/filament-shield-enhanced)
 
 > [!WARNING]
 > **Testing Phase:** Versions `0.0.*` are currently in the testing phase. At present, there are no known bugs.
