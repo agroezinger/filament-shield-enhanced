@@ -2,6 +2,14 @@
 
 All notable changes to `filament-shield-enhanced` will be documented in this file.
 
+## [0.1.2] - 2026-07-29
+
+### Changed
+- `composer.json`: `bezhansalleh/filament-shield` constraint loosened from the exact pin `4.2.0` to `^4.2|^4.3`, allowing filament-shield 4.3.x. Verified against 4.3.1: the addon only relies on `buildPermissionKeyUsing()` / `defaultPermissionKeyBuilder()` and `Filament::getPanels()`, both unchanged in 4.3.
+
+### Fixed
+- **Test suite**: filament-shield 4.3 registers a `Filament::serving()` callback in its service provider (for the new opt-in `enforcePolicies()` feature). The package's Testbench `TestCase` didn't register the core Filament service providers, so `Filament::serving()` failed with `Target class [filament] does not exist` and 12/21 tests broke. Added the missing providers (`Actions`, `Filament`, `Forms`, `Infolists`, `Livewire`, `Notifications`, `Schemas`, `Support`, `Tables`, `Widgets`), matching the pattern filament-shield itself uses in its own test suite. No impact on production use — apps with a real panel already provide this binding.
+
 ## [0.1.0] - 2026-06-20
 
 ### Added
