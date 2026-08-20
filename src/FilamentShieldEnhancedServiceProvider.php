@@ -4,6 +4,9 @@ namespace Agroezinger\FilamentShieldEnhanced;
 
 use Agroezinger\FilamentShieldEnhanced\Commands\ShieldGenerateEnhancedPages;
 use Agroezinger\FilamentShieldEnhanced\Commands\ShieldGenerateEnhancedResources;
+use Agroezinger\FilamentShieldEnhanced\Support\PagePermissionKeyBuilder;
+use BezhanSalleh\FilamentShield\Facades\FilamentShield;
+use Filament\Pages\BasePage;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 
@@ -44,20 +47,21 @@ class FilamentShieldEnhancedServiceProvider extends PackageServiceProvider
      */
     protected function registerPagePermissionHook(): void
     {
-        \BezhanSalleh\FilamentShield\Facades\FilamentShield::buildPermissionKeyUsing(
+        FilamentShield::buildPermissionKeyUsing(
             function (
                 string $entity,
-                string $affix,
+                ?string $affix,
                 string $subject,
                 string $case,
                 string $separator
-            ): string {
+            ): ?string {
                 // Intercept only Page classes that declare fine-grained permissions.
                 if (
-                    is_subclass_of($entity, \Filament\Pages\BasePage::class)
+                    $affix !== null
+                    && is_subclass_of($entity, BasePage::class)
                     && method_exists($entity, 'getShieldPagePermissions')
                 ) {
-                    return \Agroezinger\FilamentShieldEnhanced\Support\PagePermissionKeyBuilder::build(
+                    return PagePermissionKeyBuilder::build(
                         entity: $entity,
                         affix: $affix,
                         subject: $subject,
@@ -66,8 +70,18 @@ class FilamentShieldEnhancedServiceProvider extends PackageServiceProvider
                     );
                 }
 
-                // All other entities → filament-shield's built-in default.
-                return \BezhanSalleh\FilamentShield\Facades\FilamentShield::defaultPermissionKeyBuilder(
+                // Custom permissions are resolved with entity: 'custom' and affix: null
+                // (see HasEntityTransformers::resolveCustomPermissionKey()) — they have no
+                // affix/subject split, so defaultPermissionKeyBuilder() (which requires a
+                // non-null $affix) doesn't apply here. Returning null lets filament-shield's
+                // own custom-permission formatting run instead.
+                if ($affix === null) {
+                    return null;
+                }
+
+                // All other entities (resources, widgets, pages without the trait) →
+                // filament-shield's built-in default.
+                return FilamentShield::defaultPermissionKeyBuilder(
                     affix: $affix,
                     separator: $separator,
                     subject: $subject,
