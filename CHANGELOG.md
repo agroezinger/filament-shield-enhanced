@@ -2,6 +2,11 @@
 
 All notable changes to `filament-shield-enhanced` will be documented in this file.
 
+## [0.1.3] - 2026-08-20
+
+### Fixed
+- **Crash when `filament-shield.custom_permissions` is non-empty**: the addon's `buildPermissionKeyUsing()` hook (registered unconditionally in `packageBooted()`, regardless of whether any Page uses the enhanced trait) type-hinted its closure's `$affix` parameter as non-nullable `string`. filament-shield's `resolveCustomPermissionKey()` legitimately invokes the hook with `entity: 'custom'` and `affix: null` (custom permissions have no affix/subject split), causing a `TypeError` the moment an app declared any `custom_permissions` entry — even one that has nothing to do with pages. `$affix` is now nullable; when `null`, the hook returns `null` so filament-shield's own custom-permission formatting runs instead. Added a regression test (`tests/Feature/CustomPermissionsRegressionTest.php`) that reproduces the crash against the unpatched code and asserts it no longer throws.
+
 ## [0.1.2] - 2026-07-29
 
 ### Changed
