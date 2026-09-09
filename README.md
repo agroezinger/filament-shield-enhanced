@@ -474,35 +474,6 @@ Component permissions work the same way as Resources with respect to the hook �
 
 ---
 
-## Upgrading from the fork
-
-If you previously used the `agroezinger/filament-shield` fork (which is a modified copy of the original package):
-
-1. Switch `composer.json` back to the official package:
-   ```bash
-   composer remove agroezinger/filament-shield
-   composer require bezhansalleh/filament-shield agroezinger/filament-shield-enhanced
-   ```
-2. Replace `use BezhanSalleh\FilamentShield\Traits\HasPageShield` with  
-   `use Agroezinger\FilamentShieldEnhanced\Traits\HasPageShield` in your pages.
-3. Replace `use BezhanSalleh\FilamentShield\Traits\HasInjectedShieldPermissions` (if used) with  
-   `use Agroezinger\FilamentShieldEnhanced\Traits\HasInjectedShieldPermissions`.
-4. Replace `use BezhanSalleh\FilamentShield\Traits\HasComponentShield` (if used) with  
-   `use Agroezinger\FilamentShieldEnhanced\Traits\HasComponentShield` — the API
-   (`canShield()`, `authorizeShield()`, `getShieldPermissions()`,
-   `getShieldComponentPermissions()`) is unchanged, only the namespace and the
-   discovery mechanism (`components.scan_paths` config vs. a hardcoded path) differ.
-5. Re-run `php artisan shield:generate --all` so the new three-part page/resource
-   keys are created, and `php artisan shield:generate-enhanced-components` for
-   component permissions (these are never touched by `shield:generate`).
-
-> **Before switching in production:** verify the new generator produces
-> byte-identical permission keys to whatever your fork produced, e.g. by
-> diffing the `permissions` table before/after in a copy of the database.
-> A key-format mismatch silently orphans existing role→permission assignments.
-
----
-
 ## Changelog
 
 See [CHANGELOG.md](CHANGELOG.md).
