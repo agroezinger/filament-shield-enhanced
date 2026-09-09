@@ -14,7 +14,6 @@ A standalone addon for [bezhansalleh/filament-shield](https://github.com/bezhanS
 
 ## Table of Contents
 
-- [Screenshots](#screenshots)
 - [Features](#features)
 - [Requirements](#requirements)
 - [Installation](#installation)
@@ -39,20 +38,6 @@ A standalone addon for [bezhansalleh/filament-shield](https://github.com/bezhanS
 - [Changelog](#changelog)
 - [License](#license)
 - [Credits](#credits)
-
----
-
-## Screenshots
-
-A RoleResource built with the grouped recipe from [§8c](#8c--optional-group-everything-by-navigation-in-one-unified-tab-bar), with `ui.group_by_navigation` (see [Configuration](#configuration)) toggled both ways:
-
-**`group_by_navigation: true`** — top level clusters by navigation group, matching the sidebar exactly (red); a second tab row underneath separates Resources from Pages within each group (green):
-
-![group_by_navigation enabled: navigation-group tabs on top, Resources/Pages sub-tabs underneath](images/grouping/grouping_active.jpg)
-
-**`group_by_navigation: false`** — no navigation-group tabs at all; the Resources/Pages/Widgets sub-tabs sit directly at the top level instead, each showing every entry of that type across the whole panel in one flat list (red):
-
-![group_by_navigation disabled: Resources/Pages/Widgets tabs directly at the top level, ungrouped](images/grouping/grouping_inactive.jpg)
 
 ---
 
@@ -327,7 +312,7 @@ class SquadResource extends Resource
 }
 ```
 
-The description renders directly under the matching checkbox in the RoleResource UI (see the third screenshot above), regardless of whether that checkbox came from Shield's own CRUD policy methods or from `getShieldResourcePermissions()`/`getShieldPagePermissions()`.
+The description renders directly under the matching checkbox in the RoleResource UI, regardless of whether that checkbox came from Shield's own CRUD policy methods or from `getShieldResourcePermissions()`/`getShieldPagePermissions()`.
 
 ---
 
@@ -476,7 +461,19 @@ The `mutateFormDataBeforeSave()` / `afterSave()` logic from Shield's own `EditRo
 
 #### 8c — Optional: group everything by navigation, in one unified tab bar
 
-`make()` (§8a) already groups Resources and Pages by navigation group *internally*, as two **separate** top-level tabs ("Resources", "Pages"). If you'd rather have navigation group be the *outermost* grouping — one tab bar for "Members"/"Team"/"Settings"/…, each containing a "Resources"/"Pages" sub-split underneath, matching the sidebar exactly — combine the public `discoverResources()` / `discoverPages()` / `buildSection()` methods yourself. This is exactly the recipe the screenshots above were taken from:
+A plain `make()` (§8a) puts every Resource/Page in the panel into one flat list of Sections — fine for a handful of them, but once a panel has two or three dozen, a role editor scrolling through an undifferentiated wall of checkboxes stops being able to find anything. Grouping by navigation — the same grouping the sidebar already uses, so nothing new to learn — exists as an *option* rather than the default specifically to keep that overview intact for larger panels, without forcing it on apps where a flat list is already perfectly readable.
+
+`make()` (§8a) already groups Resources and Pages by navigation group *internally*, as two **separate** top-level tabs ("Resources", "Pages"). If you'd rather have navigation group be the *outermost* grouping — one tab bar for "Members"/"Team"/"Settings"/…, each containing a "Resources"/"Pages" sub-split underneath, matching the sidebar exactly — combine the public `discoverResources()` / `discoverPages()` / `buildSection()` methods yourself. `ui.group_by_navigation` (see [Configuration](#configuration)) toggles the two:
+
+**`group_by_navigation: true`** — top level clusters by navigation group, matching the sidebar exactly (red); a second tab row underneath separates Resources from Pages within each group (green):
+
+![group_by_navigation enabled: navigation-group tabs on top, Resources/Pages sub-tabs underneath](images/grouping/grouping_active.jpg)
+
+**`group_by_navigation: false`** — no navigation-group tabs at all; the Resources/Pages/Widgets sub-tabs sit directly at the top level instead, each showing every entry of that type across the whole panel in one flat list (red):
+
+![group_by_navigation disabled: Resources/Pages/Widgets tabs directly at the top level, ungrouped](images/grouping/grouping_inactive.jpg)
+
+This is exactly the recipe the screenshots above were taken from:
 
 ```php
 use Agroezinger\FilamentShieldEnhanced\Forms\EnhancedPagePermissionsForm;
