@@ -5,7 +5,7 @@
 > [!WARNING]
 > **Testing Phase:** Versions `0.0.*` are currently in the testing phase. At present, there are no known bugs.
 
-A standalone addon for [bezhansalleh/filament-shield](https://github.com/bezhanSalleh/filament-shield) that adds **fine-grained page and resource permissions** and a **structured Role Resource UI** — without forking or replacing the original package.
+A standalone addon for [bezhansalleh/filament-shield](https://github.com/bezhanSalleh/filament-shield) that adds **fine-grained page, resource and component permissions** and a **structured Role Resource UI** — without forking or replacing the original package.
 
 > **Why this exists.**  
 > The features were proposed upstream in [bezhanSalleh/filament-shield#698](https://github.com/bezhanSalleh/filament-shield/issues/698). The author has not had time to review the PR. This addon ships the same functionality as a composable layer on top of the official package.
@@ -18,12 +18,15 @@ A standalone addon for [bezhansalleh/filament-shield](https://github.com/bezhanS
 | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Multi-action page permissions**     | Declare several permissions per page via `getShieldPagePermissions()`.                                                                          |
 | **Multi-action resource permissions** | Declare custom permissions per resource via `getShieldResourcePermissions()` — beyond the standard CRUD policy methods.                         |
-| **`canShield('action')`**             | Fluent, type-safe permission check — instance method on Pages, static method on Resources.                                                      |
+| **Multi-action component permissions**| Declare permissions on any Livewire component (not registered with a panel) via `getShieldComponentPermissions()`.                              |
+| **`canShield('action')`**             | Fluent, type-safe permission check — instance method on Pages and Components, static method on Resources.                                       |
 | **`getShieldPermissions()`**          | Returns a pre-resolved `action → bool` map for injection into child Livewire components.                                                        |
-| **`HasInjectedShieldPermissions`**    | Trait for child Livewire components that receive the map from the parent page.                                                                  |
+| **`HasInjectedShieldPermissions`**    | Trait for child Livewire components that receive the map from a parent page or component.                                                       |
 | **`EnhancedPagePermissionsForm`**     | Form builder helper for the published RoleResource — renders each enhanced page as a separate Section with individual checkboxes.               |
 | **`EnhancedResourcePermissionsForm`** | Form builder helper for the published RoleResource — renders each enhanced resource as a separate Section with individual checkboxes.           |
+| **`EnhancedComponentPermissionsForm`**| Form builder helper for the published RoleResource — renders each enhanced component as a separate Section with individual checkboxes.          |
 | **Three-part page key convention**    | `{Prefix}{sep}{Action}{sep}{Subject}` (e.g. `Page:EditSettings:SettingsPage`) — fully respects filament-shield's `separator` and `case` config. |
+| **Three-part component key convention**| `{Prefix}{sep}{Action}{sep}{Subject}` (e.g. `Component:Delete:CommentComponent`) — same shape as pages, configurable prefix.                    |
 | **Two-part resource key convention**  | `{Action}{sep}{ModelBasename}` (e.g. `ViewContactInfo:Member`) — matches Shield's own resource permission format, no extra prefix.              |
 | **Zero conflict**                     | Does not replace any original class. Falls back gracefully on entities that do not declare the method.                                          |
 
@@ -253,15 +256,81 @@ Super-admin bypass is applied automatically — identical behaviour to the page 
 
 ---
 
-### 6 — Structured UI in the published RoleResource
+## Usage — Components
+
+Components are arbitrary Livewire components that aren't registered with any Filament panel (e.g. a shared widget dropped into several pages via `@livewire(...)`). Shield's own Page/Resource/Widget discovery never sees them, so they get their own trait, key format and generator command — everything else (checks, injection, RoleResource UI) works the same way as Pages.
+
+### 6 — Declare fine-grained permissions on a component
+
+```php
+<?php
+
+namespace App\Livewire;
+
+use Agroezinger\FilamentShieldEnhanced\Traits\HasComponentShield;
+use Livewire\Component;
+
+class CommentComponent extends Component
+{
+    use HasComponentShield;
+
+    /**
+     * No default action — unlike pages there is no universally meaningful
+     * "view" action for an arbitrary component, so declare exactly what you need.
+     * Same three entry formats as getShieldPagePermissions().
+     */
+    public static function getShieldComponentPermissions(): array
+    {
+        return [
+            'delete' => 'Can delete any comment',
+            'edit'   => 'Can edit any comment',
+        ];
+    }
+
+    public function delete(int $commentId): void
+    {
+        $this->authorizeShield('delete'); // aborts 403 if not permitted
+        // …
+    }
+}
+```
+
+By default, components are discovered by scanning `app/Livewire` for classes using `HasComponentShield` (configurable — see [Configuration](#configuration)). Then create the permissions in the database:
+
+```bash
+php artisan shield:generate-enhanced-components
+```
+
+This will create (for the example above):
+
+```
+Component:Delete:CommentComponent
+Component:Edit:CommentComponent
+```
+
+### 7 — Check permissions in PHP (Components)
+
+```php
+// Inside the component class
+if ($this->canShield('delete')) {
+    // Show the delete button
+}
+```
+
+`getShieldPermissions()` and `HasInjectedShieldPermissions` work exactly as documented for Pages (see step 3) — a component can inject its resolved permission map into a child component the same way a page does.
+
+---
+
+### 8 — Structured UI in the published RoleResource
 
 After publishing the RoleResource with `php artisan shield:publish --panel=<id>` two files need small changes.
 
-#### 6a — RoleResource: add both enhanced tabs
+#### 8a — RoleResource: add all three enhanced tabs
 
 Open the published `RoleResource.php` and override two methods:
 
 ```php
+use Agroezinger\FilamentShieldEnhanced\Forms\EnhancedComponentPermissionsForm;
 use Agroezinger\FilamentShieldEnhanced\Forms\EnhancedPagePermissionsForm;
 use Agroezinger\FilamentShieldEnhanced\Forms\EnhancedResourcePermissionsForm;
 use BezhanSalleh\FilamentShield\Facades\FilamentShield;
@@ -288,6 +357,9 @@ public static function getShieldFormComponents(): \Filament\Schemas\Components\C
     $enhancedResourceComponents = EnhancedResourcePermissionsForm::make();
     $enhancedResourceCount      = count(EnhancedResourcePermissionsForm::getResourcePermissionFields());
 
+    $enhancedComponentComponents = EnhancedComponentPermissionsForm::make();
+    $enhancedComponentCount      = count(EnhancedComponentPermissionsForm::getComponentPermissionFields());
+
     $tabs = [
         static::getTabFormComponentForResources(),
         static::getTabFormComponentForPage(),
@@ -309,6 +381,13 @@ public static function getShieldFormComponents(): \Filament\Schemas\Components\C
             ->schema($enhancedPageComponents);
     }
 
+    if (! empty($enhancedComponentComponents)) {
+        $tabs[] = Tab::make('enhanced_components')
+            ->label('Components')
+            ->badge($enhancedComponentCount ?: null)
+            ->schema($enhancedComponentComponents);
+    }
+
     return Tabs::make('Permissions')
         ->contained()
         ->tabs($tabs)
@@ -316,13 +395,13 @@ public static function getShieldFormComponents(): \Filament\Schemas\Components\C
 }
 ```
 
-Each Resource that declares `getShieldResourcePermissions()` appears in the **"Resources (Fine-grained)"** tab as its own Section with individual checkboxes.
+Each Resource that declares `getShieldResourcePermissions()` appears in the **"Resources (Fine-grained)"** tab, and each component that declares `getShieldComponentPermissions()` appears in the **"Components"** tab — both as their own Section with individual checkboxes.
 
-> **Note:** Shield's standard "Resources" tab only shows CRUD policy method permissions (`ViewAny`, `Create`, `Update`, …). Custom resource actions do **not** appear there — no duplicate-filtering override is needed.
+> **Note:** Shield's standard "Resources" tab only shows CRUD policy method permissions (`ViewAny`, `Create`, `Update`, …). Custom resource actions do **not** appear there — no duplicate-filtering override is needed. Components have no standard tab at all, since Shield's own discovery never sees them.
 
-#### 6b — EditRole: add the pre-fill trait
+#### 8b — EditRole: add the pre-fill trait
 
-Open the published `EditRole.php` and add `use HasEnhancedRoleForm`. This pre-fills **both** page- and resource-permission checkboxes when the form opens.
+Open the published `EditRole.php` and add `use HasEnhancedRoleForm`. This pre-fills page-, resource- **and** component-permission checkboxes when the form opens.
 
 ```php
 use Agroezinger\FilamentShieldEnhanced\Traits\HasEnhancedRoleForm;
@@ -348,6 +427,18 @@ return [
     'pages' => [
         // First segment of the three-part key: Page:Action:Subject
         'permission_prefix' => 'Page',
+    ],
+
+    'components' => [
+        // First segment of the three-part key: Component:Action:Subject
+        'permission_prefix' => 'Component',
+
+        // Directories scanned for classes using HasComponentShield, each
+        // mapped to its base namespace. Add more entries if components
+        // live outside app/Livewire.
+        'scan_paths' => [
+            app_path('Livewire') => 'App\\Livewire',
+        ],
     ],
 
     'ui' => [
@@ -379,6 +470,8 @@ When a Page class exposes `getShieldPagePermissions()`, the addon intercepts the
 
 Resource permissions use a two-part format matching Shield's own convention and are **not** created via `shield:generate` — only via `shield:generate-enhanced-resources`. This means the hook is not involved for Resources at all.
 
+Component permissions work the same way as Resources with respect to the hook — the hook is **not** involved, since arbitrary Livewire components were never part of Shield's Page/Resource/Widget discovery pipeline in the first place. `shield:generate-enhanced-components` discovers them independently by scanning the configured `components.scan_paths` for classes using `HasComponentShield`, rather than iterating a panel's registered entities.
+
 ---
 
 ## Upgrading from the fork
@@ -394,7 +487,19 @@ If you previously used the `agroezinger/filament-shield` fork (which is a modifi
    `use Agroezinger\FilamentShieldEnhanced\Traits\HasPageShield` in your pages.
 3. Replace `use BezhanSalleh\FilamentShield\Traits\HasInjectedShieldPermissions` (if used) with  
    `use Agroezinger\FilamentShieldEnhanced\Traits\HasInjectedShieldPermissions`.
-4. Re-run `php artisan shield:generate --all` so the new three-part keys are created.
+4. Replace `use BezhanSalleh\FilamentShield\Traits\HasComponentShield` (if used) with  
+   `use Agroezinger\FilamentShieldEnhanced\Traits\HasComponentShield` — the API
+   (`canShield()`, `authorizeShield()`, `getShieldPermissions()`,
+   `getShieldComponentPermissions()`) is unchanged, only the namespace and the
+   discovery mechanism (`components.scan_paths` config vs. a hardcoded path) differ.
+5. Re-run `php artisan shield:generate --all` so the new three-part page/resource
+   keys are created, and `php artisan shield:generate-enhanced-components` for
+   component permissions (these are never touched by `shield:generate`).
+
+> **Before switching in production:** verify the new generator produces
+> byte-identical permission keys to whatever your fork produced, e.g. by
+> diffing the `permissions` table before/after in a copy of the database.
+> A key-format mismatch silently orphans existing role→permission assignments.
 
 ---
 

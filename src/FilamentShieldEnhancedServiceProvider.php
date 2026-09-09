@@ -2,6 +2,7 @@
 
 namespace Agroezinger\FilamentShieldEnhanced;
 
+use Agroezinger\FilamentShieldEnhanced\Commands\ShieldGenerateEnhancedComponents;
 use Agroezinger\FilamentShieldEnhanced\Commands\ShieldGenerateEnhancedPages;
 use Agroezinger\FilamentShieldEnhanced\Commands\ShieldGenerateEnhancedResources;
 use Agroezinger\FilamentShieldEnhanced\Support\PagePermissionKeyBuilder;
@@ -21,6 +22,7 @@ class FilamentShieldEnhancedServiceProvider extends PackageServiceProvider
             ->hasCommands([
                 ShieldGenerateEnhancedPages::class,
                 ShieldGenerateEnhancedResources::class,
+                ShieldGenerateEnhancedComponents::class,
             ]);
     }
 

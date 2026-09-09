@@ -2,6 +2,7 @@
 
 namespace Agroezinger\FilamentShieldEnhanced\Traits;
 
+use Agroezinger\FilamentShieldEnhanced\Forms\EnhancedComponentPermissionsForm;
 use Agroezinger\FilamentShieldEnhanced\Forms\EnhancedPagePermissionsForm;
 use Agroezinger\FilamentShieldEnhanced\Forms\EnhancedResourcePermissionsForm;
 
@@ -28,6 +29,10 @@ trait HasEnhancedRoleForm
         }
 
         foreach (EnhancedResourcePermissionsForm::getResourcePermissionFields() as $fieldName => $keys) {
+            $data[$fieldName] = array_values(array_intersect($keys, $existing));
+        }
+
+        foreach (EnhancedComponentPermissionsForm::getComponentPermissionFields() as $fieldName => $keys) {
             $data[$fieldName] = array_values(array_intersect($keys, $existing));
         }
 

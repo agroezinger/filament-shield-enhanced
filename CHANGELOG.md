@@ -2,6 +2,11 @@
 
 All notable changes to `filament-shield-enhanced` will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- **Component permissions**: a third fine-grained permission category alongside Pages and Resources, for arbitrary Livewire components that aren't registered with any Filament panel (e.g. shared widgets dropped into several pages via `@livewire(...)`). Adds `HasComponentShield` (declare via `getShieldComponentPermissions()`, check via `canShield()`/`authorizeShield()`), `ComponentPermissionKeyBuilder` (same three-part `{Prefix}:{Action}:{Subject}` format as pages), `shield:generate-enhanced-components` (discovers components by scanning configurable `components.scan_paths` — there is no panel registry to iterate, unlike Pages/Resources/Widgets), and `EnhancedComponentPermissionsForm` for the published RoleResource. `HasEnhancedRoleForm` now pre-fills component-permission checkboxes too. Extracted from a project-local `filament-shield` fork's `HasComponentShield`/`transformComponents()` — the one capability that fork had with no prior addon equivalent.
+
 ## [0.1.3] - 2026-08-20
 
 ### Fixed

@@ -24,6 +24,32 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Component Permission Prefix & Discovery
+    |--------------------------------------------------------------------------
+    |
+    | Same three-part key format as pages, but for arbitrary Livewire
+    | components (HasComponentShield) that aren't registered with any
+    | Filament panel:
+    |
+    |   {prefix}{separator}{action}{separator}{subject}
+    |   e.g. "Component:Delete:CommentComponent"
+    |
+    | Since there's no panel registry to scan, `scan_paths` lists directories
+    | to walk for classes using HasComponentShield, each mapped to its base
+    | namespace. Add more entries here if components live outside app/Livewire.
+    |
+    */
+
+    'components' => [
+        'permission_prefix' => 'Component',
+
+        'scan_paths' => [
+            app_path('Livewire') => 'App\\Livewire',
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | UI Layout
     |--------------------------------------------------------------------------
     |
