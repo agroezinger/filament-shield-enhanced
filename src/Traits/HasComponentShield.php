@@ -79,10 +79,9 @@ trait HasComponentShield
 
         $key = static::resolvePermissionKeyForAction($action);
 
-        if (method_exists($user, 'hasPermissionTo')) {
-            return $user->hasPermissionTo($key);
-        }
-
+        // $user->can() (Gate-routed), not hasPermissionTo(): the latter throws
+        // PermissionDoesNotExist for a key with no matching row at all, instead
+        // of returning false — matches vanilla filament-shield's own behaviour.
         return $user->can($key);
     }
 

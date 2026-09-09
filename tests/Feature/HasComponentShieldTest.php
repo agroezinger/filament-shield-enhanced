@@ -2,6 +2,7 @@
 
 use Agroezinger\FilamentShieldEnhanced\Traits\HasComponentShield;
 use Illuminate\Foundation\Auth\User;
+use Spatie\Permission\Exceptions\PermissionDoesNotExist;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\PermissionRegistrar;
 use Spatie\Permission\Traits\HasRoles;
@@ -70,14 +71,9 @@ describe('HasComponentShield — canShield()', function () {
     });
 
     it('returns false for a user without the permission', function () {
-        // Deliberately not using HasRoles here: Spatie's real hasPermissionTo()
-        // throws PermissionDoesNotExist for a name with no matching row at all,
-        // which "edit" has none of in this test. Without the trait, canShield()
-        // falls through to the generic Gate-based can() check, which returns
-        // false gracefully for an unrecognised ability — matching how a real
-        // app behaves once shield:generate-enhanced-components has seeded the
-        // permission but no role holds it yet (see the positive test above,
-        // which does create the row).
+        // "edit" has no matching permission row in this test at all — canShield()
+        // must return false gracefully (via the Gate-routed can()), not throw
+        // Spatie's PermissionDoesNotExist for an ungenerated/unmatched key.
         $user = new class extends User
         {
             public int $id = 100;
@@ -92,6 +88,29 @@ describe('HasComponentShield — canShield()', function () {
 
         $this->actingAs($user);
 
+        expect((new FakeCommentComponent)->canShield('edit'))->toBeFalse();
+    });
+
+    it('returns false, does not throw, for a real Spatie user when the permission was never generated at all', function () {
+        // Regression: canShield() must not prefer hasPermissionTo(), which
+        // throws PermissionDoesNotExist for a name with zero matching rows —
+        // even for a fully Spatie-equipped user. A declared action whose
+        // permission hasn't been generated yet (e.g. shield:generate-enhanced-
+        // components wasn't run after adding it) is "not granted", not a crash.
+        $user = new class extends User
+        {
+            use HasRoles;
+
+            protected $table = 'users';
+
+            protected string $guard_name = 'web';
+        };
+        $user->forceFill(['id' => 106]);
+        $user->exists = true;
+
+        $this->actingAs($user);
+
+        expect(fn () => (new FakeCommentComponent)->canShield('edit'))->not->toThrow(PermissionDoesNotExist::class);
         expect((new FakeCommentComponent)->canShield('edit'))->toBeFalse();
     });
 

@@ -84,10 +84,13 @@ trait HasPageShield
             return false;
         }
 
-        if (method_exists($user, 'hasAnyPermission')) {
-            return $user->hasAnyPermission($keys);
-        }
-
+        // Intentionally NOT Spatie's hasAnyPermission(): it throws
+        // PermissionDoesNotExist for any key with no matching row at all,
+        // whereas $user->can() resolves through Laravel's Gate and returns
+        // false gracefully for an unrecognised ability — the same behaviour
+        // vanilla filament-shield's own canAccess() relies on. A declared
+        // action whose permission hasn't been generated yet (or was renamed)
+        // should be treated as "not granted", not crash the page.
         foreach ($keys as $key) {
             if ($user->can($key)) {
                 return true;
@@ -122,10 +125,9 @@ trait HasPageShield
 
         $key = static::resolvePermissionKeyForAction($action);
 
-        if (method_exists($user, 'hasPermissionTo')) {
-            return $user->hasPermissionTo($key);
-        }
-
+        // $user->can() (Gate-routed), not hasPermissionTo(): the latter throws
+        // PermissionDoesNotExist for a key with no matching row at all, instead
+        // of returning false — see canAccess() above for the same reasoning.
         return $user->can($key);
     }
 
