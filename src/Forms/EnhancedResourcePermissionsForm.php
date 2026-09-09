@@ -2,28 +2,36 @@
 
 namespace Agroezinger\FilamentShieldEnhanced\Forms;
 
+use Agroezinger\FilamentShieldEnhanced\Support\NavigationGroupResolver;
 use Agroezinger\FilamentShieldEnhanced\Support\ResourcePermissionKeyBuilder;
+use BezhanSalleh\FilamentShield\Facades\FilamentShield;
 use Filament\Forms\Components\CheckboxList;
+use Filament\Resources\Resource;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
-use Filament\Resources\Resource;
+use Filament\Schemas\Components\Tabs;
+use Filament\Schemas\Components\Tabs\Tab;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
 /**
  * EnhancedResourcePermissionsForm
  *
- * Builds the Filament form components for managing fine-grained resource
- * permissions inside a published RoleResource. Each Resource that declares
- * getShieldResourcePermissions() gets its own Section with individual checkboxes.
+ * Builds the Filament form components for managing permissions of every
+ * Filament Resource inside a published RoleResource: one Section per
+ * Resource, combining the standard CRUD permissions (view/create/update/…,
+ * sourced from bezhansalleh/filament-shield) with the fine-grained custom
+ * actions a Resource may additionally declare via getShieldResourcePermissions().
+ * Sections are grouped into sub-tabs by the Resource's own navigation group,
+ * in the order the panel declares its navigation groups.
  *
  * ---
  * Usage in a published RoleResource form schema:
  *
  *   use Agroezinger\FilamentShieldEnhanced\Forms\EnhancedResourcePermissionsForm;
  *
- *   Tabs\Tab::make('enhanced_resources')
- *       ->label('Ressourcen (Feinsteuerung)')
+ *   Tabs\Tab::make('resources')
+ *       ->label('Ressourcen')
  *       ->schema(EnhancedResourcePermissionsForm::make()),
  * ---
  */
@@ -31,7 +39,8 @@ class EnhancedResourcePermissionsForm
 {
     /**
      * Returns a map of CheckboxList field name => list of permission keys for
-     * every enhanced Resource. Used to pre-fill the form in EditRole::mutateFormDataBeforeFill().
+     * every Resource (standard + fine-grained combined). Used to pre-fill the
+     * form in EditRole::mutateFormDataBeforeFill().
      *
      * @return array<string, list<string>>
      */
@@ -39,27 +48,30 @@ class EnhancedResourcePermissionsForm
     {
         $result = [];
 
-        foreach (static::discoverEnhancedResources() as $resource) {
+        foreach (static::discoverResources() as $resource) {
             $fieldName          = static::fieldName($resource['class']);
-            $result[$fieldName] = array_column($resource['permissions'], 'key');
+            $result[$fieldName] = array_keys($resource['options']);
         }
 
         return $result;
     }
 
     /**
-     * Returns an array of Filament form components (Grid > Sections > CheckboxLists)
-     * for every enhanced Resource discovered in the application.
+     * Returns an array of Filament form components — one outer Tabs component
+     * with one inner Tab per navigation group, each containing a Grid of
+     * Resource Sections — for every Resource discovered in the application.
      *
-     * @return list<\Filament\Forms\Components\Component>
+     * @return list<\Filament\Schemas\Components\Component>
      */
     public static function make(): array
     {
-        $resources = static::discoverEnhancedResources();
+        $resources = static::discoverResources();
 
         if ($resources->isEmpty()) {
             return [];
         }
+
+        $groupOrder = NavigationGroupResolver::order();
 
         $gridColumns = config('filament-shield-enhanced.ui.grid_columns', [
             'default' => 1,
@@ -67,10 +79,33 @@ class EnhancedResourcePermissionsForm
             'lg'      => 3,
         ]);
 
-        $sections = $resources->map(fn (array $resource) => static::buildSection($resource))->all();
+        $groupTabs = $resources
+            ->groupBy(fn (array $resource) => $resource['navigationGroup'])
+            ->sortBy(function (Collection $group, string $label) use ($groupOrder): int {
+                $position = array_search($label, $groupOrder, true);
+
+                return $position === false ? count($groupOrder) : $position;
+            })
+            ->map(function (Collection $group, string $label) use ($gridColumns): Tab {
+                $sections = $group
+                    ->sortBy('navigationSort')
+                    ->map(fn (array $resource) => static::buildSection($resource))
+                    ->all();
+
+                return Tab::make(Str::slug($label !== '' ? $label : 'sonstige'))
+                    ->label($label !== '' ? $label : 'Sonstige')
+                    ->badge($group->count())
+                    ->schema([
+                        Grid::make($gridColumns)->schema($sections),
+                    ]);
+            })
+            ->values()
+            ->all();
 
         return [
-            Grid::make($gridColumns)->schema($sections),
+            Tabs::make('resource_groups')
+                ->tabs($groupTabs)
+                ->columnSpanFull(),
         ];
     }
 
@@ -78,20 +113,12 @@ class EnhancedResourcePermissionsForm
     // Section builder
     // -------------------------------------------------------------------------
 
-    protected static function buildSection(array $resource): Section
+    public static function buildSection(array $resource): Section
     {
         /** @var class-string<Resource> $resourceClass */
         $resourceClass = $resource['class'];
-        $permissions   = $resource['permissions'];
-
-        $options = collect($permissions)
-            ->mapWithKeys(fn (array $perm) => [$perm['key'] => $perm['label']])
-            ->all();
-
-        $descriptions = collect($permissions)
-            ->filter(fn (array $perm) => filled($perm['description']))
-            ->mapWithKeys(fn (array $perm) => [$perm['key'] => $perm['description']])
-            ->all();
+        $options       = $resource['options'];
+        $descriptions  = $resource['descriptions'];
 
         $checkboxListColumns = config('filament-shield-enhanced.ui.checkbox_list_columns', [
             'default' => 1,
@@ -115,6 +142,7 @@ class EnhancedResourcePermissionsForm
         return Section::make($title)
             ->description($description)
             ->compact()
+            ->collapsible()
             ->schema([$checkboxList]);
     }
 
@@ -123,45 +151,63 @@ class EnhancedResourcePermissionsForm
     // -------------------------------------------------------------------------
 
     /**
-     * Discovers all Filament Resource classes that declare getShieldResourcePermissions()
-     * and resolves their permission keys + labels.
+     * Discovers every Resource Filament Shield knows about and resolves its
+     * combined permission options (standard CRUD + fine-grained custom
+     * actions, if declared) plus the navigation group/sort used for grouping.
      *
-     * @return Collection<int, array{class: class-string, permissions: list<array{key: string, label: string, description: string|null}>}>
+     * @return Collection<int, array{
+     *     class: class-string,
+     *     options: array<string, string>,
+     *     descriptions: array<string, string>,
+     *     navigationGroup: string,
+     *     navigationSort: int,
+     * }>
      */
-    protected static function discoverEnhancedResources(): Collection
+    public static function discoverResources(): Collection
     {
-        $allResources = collect();
+        return collect(FilamentShield::getResources())
+            ->map(function (array $entity) {
+                /** @var class-string<Resource> $resourceClass */
+                $resourceClass = $entity['resourceFqcn'];
 
-        try {
-            $panels = \Filament\Facades\Filament::getPanels();
+                $options      = FilamentShield::getResourcePermissionsWithLabels($resourceClass) ?? [];
+                $descriptions = [];
 
-            foreach ($panels as $panel) {
-                foreach ($panel->getResources() as $resourceClass) {
-                    if (
-                        is_subclass_of($resourceClass, Resource::class)
-                        && method_exists($resourceClass, 'getShieldResourcePermissions')
-                    ) {
-                        $allResources->push($resourceClass);
+                if (method_exists($resourceClass, 'getShieldResourcePermissions')) {
+                    foreach (static::resolvePermissionsForResource($resourceClass) as $permission) {
+                        $options[$permission['key']] = $permission['label'];
+
+                        if (filled($permission['description'])) {
+                            $descriptions[$permission['key']] = $permission['description'];
+                        }
                     }
                 }
-            }
-        } catch (\Throwable) {
-            // Outside of a panel context (e.g. during unit testing).
-        }
 
-        return $allResources
-            ->unique()
-            ->map(fn (string $class) => [
-                'class'       => $class,
-                'permissions' => static::resolvePermissionsForResource($class),
-            ])
-            ->filter(fn (array $resource) => ! empty($resource['permissions']))
+                if (method_exists($resourceClass, 'getShieldPermissionDescriptions')) {
+                    foreach ($resourceClass::getShieldPermissionDescriptions() as $key => $description) {
+                        if (filled($description)) {
+                            $descriptions[$key] = __($description);
+                        }
+                    }
+                }
+
+                return [
+                    'class'           => $resourceClass,
+                    'options'         => $options,
+                    'descriptions'    => $descriptions,
+                    'navigationGroup' => NavigationGroupResolver::labelFor($resourceClass),
+                    'navigationSort'  => method_exists($resourceClass, 'getNavigationSort')
+                        ? ($resourceClass::getNavigationSort() ?? PHP_INT_MAX)
+                        : PHP_INT_MAX,
+                ];
+            })
+            ->filter(fn (array $resource) => ! empty($resource['options']))
             ->values();
     }
 
     /**
-     * Resolve permission key + human-readable label for each action declared
-     * by the given Resource class.
+     * Resolve permission key + human-readable label for each fine-grained
+     * action declared by the given Resource class via getShieldResourcePermissions().
      *
      * @param  class-string  $resourceClass
      * @return list<array{key: string, label: string, description: string|null}>
@@ -198,8 +244,12 @@ class EnhancedResourcePermissionsForm
                     case: $case,
                     separator: $separator,
                 ),
-                'label'       => $label,
-                'description' => $description,
+                // __(): these labels/descriptions are literal strings declared by the
+                // consuming app, not translation keys — routes them through the app's
+                // own lang/{locale}.json (short-key JSON translation) if it provides
+                // one, no-op otherwise. Same mechanism as resolveSectionTitle() below.
+                'label'       => __($label),
+                'description' => $description !== null ? __($description) : null,
             ];
         }
 
@@ -213,7 +263,7 @@ class EnhancedResourcePermissionsForm
     protected static function resolveSectionTitle(string $resourceClass): string
     {
         try {
-            return $resourceClass::getModelLabel();
+            return __($resourceClass::getModelLabel());
         } catch (\Throwable) {
             return Str::headline(class_basename($resourceClass::getModel()));
         }

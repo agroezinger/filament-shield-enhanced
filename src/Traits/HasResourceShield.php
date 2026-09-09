@@ -51,6 +51,26 @@ trait HasResourceShield
         return [];
     }
 
+    /**
+     * Optionally attach a help text to individual permission checkboxes on
+     * the Role form — standard CRUD or fine-grained alike. Only override
+     * this where behaviour genuinely deviates from what the checkbox label
+     * implies (e.g. a scope that isn't actually enforced yet).
+     *
+     *   public static function getShieldPermissionDescriptions(): array
+     *   {
+     *       return [
+     *           'Update:Squad' => 'Gilt für ALLE Mannschaften, unabhängig von der Zuordnung.',
+     *       ];
+     *   }
+     *
+     * @return array<string, string>
+     */
+    public static function getShieldPermissionDescriptions(): array
+    {
+        return [];
+    }
+
     // -------------------------------------------------------------------------
     // Permission checks
     // -------------------------------------------------------------------------

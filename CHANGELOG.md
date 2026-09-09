@@ -4,6 +4,18 @@ All notable changes to `filament-shield-enhanced` will be documented in this fil
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-09
+
+### Added
+- **`getShieldPermissionDescriptions()`**: optional hook on Resources/Pages to attach a help text under any individual permission checkbox in the RoleResource UI — including filament-shield's own standard CRUD permissions, not just fine-grained actions. Use it where a checkbox's real-world effect deviates from what its label implies.
+- **`NavigationGroupResolver`**: resolves a Resource's/Page's navigation group to a display string, plus the panel's own `->navigationGroups()` order — the building block behind clustering the RoleResource UI the same way the sidebar is grouped.
+- **`EnhancedResourcePermissionsForm::discoverResources()` / `EnhancedPagePermissionsForm::discoverPages()`**: now public. Return every Resource's/Page's merged permission options, descriptions, navigation group and sort as plain data, for apps composing a custom grouped RoleResource layout (see README §8c).
+- **`ui.group_by_navigation` / `ui.group_sort` / `ui.labels` config keys**: a shared contract for the §8c "group everything by navigation" recipe. Not read by `make()` itself — only meaningful if the consuming app's own `getShieldFormComponents()` reads them.
+- **Translatable labels**: every label/description `make()`/`discoverResources()`/`discoverPages()` renders (section titles from `getModelLabel()`, fine-grained action labels/descriptions, `getShieldPermissionDescriptions()` hints) is now routed through Laravel's `__()`. The literal string IS the translation key — drop a matching entry in the consuming app's own `lang/{locale}.json` for a locale where it should read differently; no-op otherwise. filament-shield's own standard CRUD labels were already translated independently of this addon.
+
+### Changed
+- **`EnhancedResourcePermissionsForm::make()` / `EnhancedPagePermissionsForm::make()`**: each Resource/Page now gets **one** Section combining filament-shield's own standard permissions with any fine-grained `getShieldResourcePermissions()`/`getShieldPagePermissions()` actions in the same checkbox list, instead of requiring a separate "(Fine-grained)" tab and a `getPageOptions()` de-duplication override on the consuming RoleResource. Sections are now also grouped into sub-tabs by navigation group (previously one flat list). Per-Section checkbox search (`->searchable()`) was removed again — redundant at typical Section sizes. **Breaking for apps following the old README §8a recipe**: the standard Shield "Resources"/"Pages" tabs are meant to be replaced outright now, not kept alongside a separate Enhanced tab.
+
 ## [0.2.0] - 2026-09-09
 
 ### Added

@@ -69,6 +69,56 @@ return [
             'default' => 1,
             'sm' => 2,
         ],
+
+        /*
+        |----------------------------------------------------------------------
+        | Group permissions by navigation group
+        |----------------------------------------------------------------------
+        |
+        | When true, a grouped Role permission form (e.g. RoleResource's
+        | getShieldFormComponents()) clusters Resources/Pages first by their
+        | Filament navigation group (matching the sidebar), with a second-level
+        | "category" tab (Resources/Pages/…) underneath. When false, those
+        | category tabs sit directly at the top level instead, each showing
+        | every entry of that type in one flat list, ungrouped.
+        |
+        */
+
+        'group_by_navigation' => true,
+
+        /*
+        |----------------------------------------------------------------------
+        | Navigation group sort order
+        |----------------------------------------------------------------------
+        |
+        | Only relevant when group_by_navigation is true. 'navigation' orders
+        | the group tabs the same way the panel declares them via
+        | ->navigationGroups() (matching the sidebar). 'alphabetical' sorts
+        | group labels alphabetically instead.
+        |
+        */
+
+        'group_sort' => 'navigation', // 'navigation' | 'alphabetical'
+
+        /*
+        |----------------------------------------------------------------------
+        | Category labels
+        |----------------------------------------------------------------------
+        |
+        | End users configuring roles don't know what a Filament "Resource" or
+        | "Page" is — these labels describe each permission category by what
+        | it lets someone DO rather than by the underlying Filament concept.
+        | Override per app to match your own terminology.
+        |
+        */
+
+        'labels' => [
+            'resources'  => 'Ressourcen',
+            'pages'      => 'Seiten',
+            'widgets'    => 'Widgets',
+            'custom'     => 'Sonstige Berechtigungen',
+            'misc_group' => 'Sonstiges',
+        ],
     ],
 
 ];

@@ -12,6 +12,50 @@ A standalone addon for [bezhansalleh/filament-shield](https://github.com/bezhanS
 
 ---
 
+## Table of Contents
+
+- [Screenshots](#screenshots)
+- [Features](#features)
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Usage — Pages](#usage--pages)
+  - [1 — Declare fine-grained permissions on a Page](#1--declare-fine-grained-permissions-on-a-page)
+  - [2 — Check permissions in PHP (Pages)](#2--check-permissions-in-php-pages)
+  - [3 — Inject permissions into child Livewire components](#3--inject-permissions-into-child-livewire-components)
+- [Usage — Resources](#usage--resources)
+  - [4 — Declare fine-grained permissions on a Resource](#4--declare-fine-grained-permissions-on-a-resource)
+  - [5 — Check resource permissions in PHP](#5--check-resource-permissions-in-php)
+  - [Attaching a deviation hint to any permission checkbox](#attaching-a-deviation-hint-to-any-permission-checkbox)
+- [Usage — Components](#usage--components)
+  - [6 — Declare fine-grained permissions on a component](#6--declare-fine-grained-permissions-on-a-component)
+  - [7 — Check permissions in PHP (Components)](#7--check-permissions-in-php-components)
+  - [8 — Structured UI in the published RoleResource](#8--structured-ui-in-the-published-roleresource)
+    - [8a — RoleResource: replace the standard Resources/Pages tabs](#8a--roleresource-replace-the-standard-resourcespages-tabs)
+    - [8b — EditRole: add the pre-fill trait](#8b--editrole-add-the-pre-fill-trait)
+    - [8c — Optional: group everything by navigation, in one unified tab bar](#8c--optional-group-everything-by-navigation-in-one-unified-tab-bar)
+- [Configuration](#configuration)
+- [Localization](#localization)
+- [How it works internally](#how-it-works-internally)
+- [Changelog](#changelog)
+- [License](#license)
+- [Credits](#credits)
+
+---
+
+## Screenshots
+
+A RoleResource built with the grouped recipe from [§8c](#8c--optional-group-everything-by-navigation-in-one-unified-tab-bar), with `ui.group_by_navigation` (see [Configuration](#configuration)) toggled both ways:
+
+**`group_by_navigation: true`** — top level clusters by navigation group, matching the sidebar exactly (red); a second tab row underneath separates Resources from Pages within each group (green):
+
+![group_by_navigation enabled: navigation-group tabs on top, Resources/Pages sub-tabs underneath](images/grouping/grouping_active.jpg)
+
+**`group_by_navigation: false`** — no navigation-group tabs at all; the Resources/Pages/Widgets sub-tabs sit directly at the top level instead, each showing every entry of that type across the whole panel in one flat list (red):
+
+![group_by_navigation disabled: Resources/Pages/Widgets tabs directly at the top level, ungrouped](images/grouping/grouping_inactive.jpg)
+
+---
+
 ## Features
 
 | Feature                               | Description                                                                                                                                     |
@@ -22,9 +66,12 @@ A standalone addon for [bezhansalleh/filament-shield](https://github.com/bezhanS
 | **`canShield('action')`**             | Fluent, type-safe permission check — instance method on Pages and Components, static method on Resources.                                       |
 | **`getShieldPermissions()`**          | Returns a pre-resolved `action → bool` map for injection into child Livewire components.                                                        |
 | **`HasInjectedShieldPermissions`**    | Trait for child Livewire components that receive the map from a parent page or component.                                                       |
-| **`EnhancedPagePermissionsForm`**     | Form builder helper for the published RoleResource — renders each enhanced page as a separate Section with individual checkboxes.               |
-| **`EnhancedResourcePermissionsForm`** | Form builder helper for the published RoleResource — renders each enhanced resource as a separate Section with individual checkboxes.           |
+| **`EnhancedPagePermissionsForm`**     | Form builder helper for the published RoleResource — one Section per Page, combining filament-shield's own standard permission with any fine-grained actions from `getShieldPagePermissions()` in the same checkbox list.               |
+| **`EnhancedResourcePermissionsForm`** | Form builder helper for the published RoleResource — one Section per Resource, combining the standard CRUD permissions with any fine-grained actions from `getShieldResourcePermissions()` in the same checkbox list.           |
 | **`EnhancedComponentPermissionsForm`**| Form builder helper for the published RoleResource — renders each enhanced component as a separate Section with individual checkboxes.          |
+| **`getShieldPermissionDescriptions()`** | Optional hook on Resources/Pages (with or without fine-grained actions) to attach a help text under *any* individual permission checkbox — standard CRUD included. Use it where the checkbox's real-world effect deviates from what its label implies. |
+| **`NavigationGroupResolver`**         | Resolves a Resource's/Page's navigation group to a display string, and the panel's own `->navigationGroups()` order — the building block behind grouping the RoleResource UI the same way the sidebar is grouped. |
+| **`discoverResources()` / `discoverPages()`** | Public on `EnhancedResourcePermissionsForm` / `EnhancedPagePermissionsForm` — return every Resource/Page's merged permission options, descriptions, navigation group and sort as plain data, for building a custom RoleResource layout (see [§8c](#8c--optional-group-everything-by-navigation-in-one-unified-tab-bar)). |
 | **Three-part page key convention**    | `{Prefix}{sep}{Action}{sep}{Subject}` (e.g. `Page:EditSettings:SettingsPage`) — fully respects filament-shield's `separator` and `case` config. |
 | **Three-part component key convention**| `{Prefix}{sep}{Action}{sep}{Subject}` (e.g. `Component:Delete:CommentComponent`) — same shape as pages, configurable prefix.                    |
 | **Two-part resource key convention**  | `{Action}{sep}{ModelBasename}` (e.g. `ViewContactInfo:Member`) — matches Shield's own resource permission format, no extra prefix.              |
@@ -256,6 +303,34 @@ Super-admin bypass is applied automatically — identical behaviour to the page 
 
 ---
 
+### Attaching a deviation hint to any permission checkbox
+
+`getShieldPermissionDescriptions()` is a separate, optional hook — it works even on **standard** CRUD permissions that were never declared via `getShieldResourcePermissions()`/`getShieldPagePermissions()`. Use it where the checkbox's real-world effect doesn't match what its label implies (an unimplemented scope, a permission that also grants an unrelated side effect, …):
+
+```php
+class SquadResource extends Resource
+{
+    // No HasResourceShield/getShieldResourcePermissions() needed — this hook
+    // works standalone against filament-shield's own standard CRUD keys too.
+
+    public static function getShieldPermissionDescriptions(): array
+    {
+        $hint = 'Applies to ALL squads — team-manager assignment and department '
+            . 'scoping are not enforced here yet.';
+
+        return [
+            'View:Squad'   => $hint,
+            'Update:Squad' => $hint,
+            'Delete:Squad' => $hint,
+        ];
+    }
+}
+```
+
+The description renders directly under the matching checkbox in the RoleResource UI (see the third screenshot above), regardless of whether that checkbox came from Shield's own CRUD policy methods or from `getShieldResourcePermissions()`/`getShieldPagePermissions()`.
+
+---
+
 ## Usage — Components
 
 Components are arbitrary Livewire components that aren't registered with any Filament panel (e.g. a shared widget dropped into several pages via `@livewire(...)`). Shield's own Page/Resource/Widget discovery never sees them, so they get their own trait, key format and generator command — everything else (checks, injection, RoleResource UI) works the same way as Pages.
@@ -325,67 +400,52 @@ if ($this->canShield('delete')) {
 
 After publishing the RoleResource with `php artisan shield:publish --panel=<id>` two files need small changes.
 
-#### 8a — RoleResource: add all three enhanced tabs
+#### 8a — RoleResource: replace the standard Resources/Pages tabs
 
-Open the published `RoleResource.php` and override two methods:
+`EnhancedResourcePermissionsForm::make()` / `EnhancedPagePermissionsForm::make()` fully replace Shield's own "Resources"/"Pages" tabs — each Resource/Page gets **one** Section combining the standard CRUD permissions with any fine-grained actions in the same checkbox list, instead of splitting them across a standard tab and a separate "(Fine-grained)" tab. No `getPageOptions()` override is needed any more — there is nothing left to de-duplicate.
 
 ```php
 use Agroezinger\FilamentShieldEnhanced\Forms\EnhancedComponentPermissionsForm;
 use Agroezinger\FilamentShieldEnhanced\Forms\EnhancedPagePermissionsForm;
 use Agroezinger\FilamentShieldEnhanced\Forms\EnhancedResourcePermissionsForm;
-use BezhanSalleh\FilamentShield\Facades\FilamentShield;
 use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Tabs\Tab;
 
-/**
- * Exclude pages that declare getShieldPagePermissions() from the standard
- * "Pages" tab — they are managed exclusively by the Enhanced tab.
- */
-public static function getPageOptions(): array
-{
-    return collect(FilamentShield::getPages())
-        ->reject(fn(array $page) => method_exists($page['pageFqcn'], 'getShieldPagePermissions'))
-        ->flatMap(fn(array $page) => $page['permissions'])
-        ->toArray();
-}
-
 public static function getShieldFormComponents(): \Filament\Schemas\Components\Component
 {
-    $enhancedPageComponents     = EnhancedPagePermissionsForm::make();
-    $enhancedPageCount          = count(EnhancedPagePermissionsForm::getPagePermissionFields());
+    $resourceComponents = EnhancedResourcePermissionsForm::make();
+    $resourceCount      = array_sum(array_map('count', EnhancedResourcePermissionsForm::getResourcePermissionFields()));
 
-    $enhancedResourceComponents = EnhancedResourcePermissionsForm::make();
-    $enhancedResourceCount      = count(EnhancedResourcePermissionsForm::getResourcePermissionFields());
+    $pageComponents = EnhancedPagePermissionsForm::make();
+    $pageCount      = array_sum(array_map('count', EnhancedPagePermissionsForm::getPagePermissionFields()));
 
-    $enhancedComponentComponents = EnhancedComponentPermissionsForm::make();
-    $enhancedComponentCount      = count(EnhancedComponentPermissionsForm::getComponentPermissionFields());
+    $componentComponents = EnhancedComponentPermissionsForm::make();
+    $componentCount      = array_sum(array_map('count', EnhancedComponentPermissionsForm::getComponentPermissionFields()));
 
     $tabs = [
-        static::getTabFormComponentForResources(),
-        static::getTabFormComponentForPage(),
         static::getTabFormComponentForWidget(),
         static::getTabFormComponentForCustomPermissions(),
     ];
 
-    if (! empty($enhancedResourceComponents)) {
-        $tabs[] = Tab::make('enhanced_resources')
-            ->label('Resources (Fine-grained)')
-            ->badge($enhancedResourceCount ?: null)
-            ->schema($enhancedResourceComponents);
+    if (! empty($resourceComponents)) {
+        $tabs[] = Tab::make('resources')
+            ->label('Resources')
+            ->badge($resourceCount ?: null)
+            ->schema($resourceComponents);
     }
 
-    if (! empty($enhancedPageComponents)) {
-        $tabs[] = Tab::make('enhanced_pages')
-            ->label('Pages (Fine-grained)')
-            ->badge($enhancedPageCount ?: null)
-            ->schema($enhancedPageComponents);
+    if (! empty($pageComponents)) {
+        $tabs[] = Tab::make('pages')
+            ->label('Pages')
+            ->badge($pageCount ?: null)
+            ->schema($pageComponents);
     }
 
-    if (! empty($enhancedComponentComponents)) {
-        $tabs[] = Tab::make('enhanced_components')
+    if (! empty($componentComponents)) {
+        $tabs[] = Tab::make('components')
             ->label('Components')
-            ->badge($enhancedComponentCount ?: null)
-            ->schema($enhancedComponentComponents);
+            ->badge($componentCount ?: null)
+            ->schema($componentComponents);
     }
 
     return Tabs::make('Permissions')
@@ -395,9 +455,7 @@ public static function getShieldFormComponents(): \Filament\Schemas\Components\C
 }
 ```
 
-Each Resource that declares `getShieldResourcePermissions()` appears in the **"Resources (Fine-grained)"** tab, and each component that declares `getShieldComponentPermissions()` appears in the **"Components"** tab — both as their own Section with individual checkboxes.
-
-> **Note:** Shield's standard "Resources" tab only shows CRUD policy method permissions (`ViewAny`, `Create`, `Update`, …). Custom resource actions do **not** appear there — no duplicate-filtering override is needed. Components have no standard tab at all, since Shield's own discovery never sees them.
+Each `make()` output is already grouped into sub-tabs by navigation group internally, always in the panel's own `->navigationGroups()` order — Resources/Pages without a `$navigationGroup` fall into a "Sonstige" bucket. Widgets and Custom Permissions have no navigation group at all, so they stay on Shield's own standard tabs.
 
 #### 8b — EditRole: add the pre-fill trait
 
@@ -415,6 +473,91 @@ class EditRole extends EditRecord
 ```
 
 The `mutateFormDataBeforeSave()` / `afterSave()` logic from Shield's own `EditRole` handles saving — no additional overrides needed.
+
+#### 8c — Optional: group everything by navigation, in one unified tab bar
+
+`make()` (§8a) already groups Resources and Pages by navigation group *internally*, as two **separate** top-level tabs ("Resources", "Pages"). If you'd rather have navigation group be the *outermost* grouping — one tab bar for "Members"/"Team"/"Settings"/…, each containing a "Resources"/"Pages" sub-split underneath, matching the sidebar exactly — combine the public `discoverResources()` / `discoverPages()` / `buildSection()` methods yourself. This is exactly the recipe the screenshots above were taken from:
+
+```php
+use Agroezinger\FilamentShieldEnhanced\Forms\EnhancedPagePermissionsForm;
+use Agroezinger\FilamentShieldEnhanced\Forms\EnhancedResourcePermissionsForm;
+use Agroezinger\FilamentShieldEnhanced\Support\NavigationGroupResolver;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Tabs;
+use Filament\Schemas\Components\Tabs\Tab;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
+
+public static function getShieldFormComponents(): \Filament\Schemas\Components\Component
+{
+    $entries = EnhancedResourcePermissionsForm::discoverResources()
+        ->map(fn (array $entry): array => $entry + ['category' => 'resources'])
+        ->concat(
+            EnhancedPagePermissionsForm::discoverPages()
+                ->map(fn (array $entry): array => $entry + ['category' => 'pages'])
+        );
+
+    $grouped    = $entries->groupBy('navigationGroup');
+    $ungrouped  = $grouped->get('', collect()); // Resources/Pages with no $navigationGroup
+    $groupOrder = NavigationGroupResolver::order();
+    $groupSort  = config('filament-shield-enhanced.ui.group_sort', 'navigation');
+
+    $tabs = $grouped->except([''])
+        ->sortBy(fn (Collection $g, string $label) => $groupSort === 'alphabetical'
+            ? $label
+            : (array_search($label, $groupOrder, true) === false ? count($groupOrder) : array_search($label, $groupOrder, true)))
+        ->map(fn (Collection $g, string $label) => Tab::make(Str::slug($label ?: 'misc'))
+            ->label($label ?: config('filament-shield-enhanced.ui.labels.misc_group', 'Sonstige'))
+            ->badge($g->count())
+            ->schema(static::buildCategorySchema($g)))
+        ->values()
+        ->all();
+
+    return Tabs::make('Permissions')->contained()->tabs($tabs)->columnSpan('full');
+}
+
+/**
+ * Collects the Resources/Pages sub-tabs as plain data (label/badge/schema)
+ * rather than building Tab objects straight away: a Tab can only be
+ * introspected (e.g. to read its schema back out) once it's attached to a
+ * container, which only happens when it's handed to a parent Tabs::make() —
+ * so if only one category ends up present, this reaches for the raw
+ * $categories entry directly instead of building-then-unwrapping a Tab.
+ */
+protected static function buildCategorySchema(Collection $entries): array
+{
+    $labels = [
+        'resources' => config('filament-shield-enhanced.ui.labels.resources', 'Resources'),
+        'pages'     => config('filament-shield-enhanced.ui.labels.pages', 'Pages'),
+    ];
+
+    $categories = collect($labels)
+        ->map(function (string $label, string $category) use ($entries): ?array {
+            $categoryEntries = $entries->where('category', $category);
+            if ($categoryEntries->isEmpty()) return null;
+
+            $sections = $categoryEntries->sortBy('navigationSort')->map(
+                fn (array $entry) => $category === 'resources'
+                    ? EnhancedResourcePermissionsForm::buildSection($entry)
+                    : EnhancedPagePermissionsForm::buildSection($entry)
+            )->all();
+
+            return ['label' => $label, 'badge' => $categoryEntries->count(), 'schema' => [Grid::make()->schema($sections)]];
+        })
+        ->filter()
+        ->values();
+
+    if ($categories->count() > 1) {
+        return [Tabs::make('categories')->tabs(
+            $categories->map(fn (array $c, int $i) => Tab::make('cat_' . $i)->label($c['label'])->badge($c['badge'])->schema($c['schema']))->all()
+        )];
+    }
+
+    return $categories->first()['schema'] ?? [];
+}
+```
+
+This full pattern — including the "Sonstige" catch-all tab for ungrouped Resources/Pages plus Widgets/Custom Permissions, and the `ui.group_by_navigation` on/off switch — is what ClubManager's own `RoleResource` implements; treat the sketch above as a starting point, not a drop-in.
 
 ---
 
@@ -452,9 +595,35 @@ return [
             'default' => 1,
             'sm'      => 2,
         ],
+
+        // None of the three keys below are read by make() itself — make()
+        // always groups by navigation order and always calls things
+        // "Resources"/"Pages". They exist purely as a shared config contract
+        // for apps implementing the §8c recipe; nothing happens unless your
+        // own getShieldFormComponents() reads them (as the §8c snippet does).
+        'group_by_navigation' => true,
+
+        'group_sort' => 'navigation', // 'navigation' | 'alphabetical'
+
+        // End users configuring roles don't know what a Filament "Resource"
+        // or "Page" is — override with labels that describe what the
+        // category lets someone DO.
+        'labels' => [
+            'resources'  => 'Resources',
+            'pages'      => 'Pages',
+            'widgets'    => 'Widgets',
+            'custom'     => 'Custom Permissions',
+            'misc_group' => 'Miscellaneous',
+        ],
     ],
 ];
 ```
+
+---
+
+## Localization
+
+Section titles come from each Resource's/Page's own `getModelLabel()` / navigation label — if your app already localizes those, they localize here too. Everything **this addon itself** adds — permission labels/descriptions passed to `getShieldResourcePermissions()` / `getShieldPagePermissions()` / `getShieldPermissionDescriptions()`, and the `ui.labels.*` config values from §8c — are plain strings, not routed through `__()`. If your app supports multiple locales, wrap them yourself (`__('permissions.squad_view_hint')` instead of a literal string) — this addon won't do it for you. Shield's own standard CRUD labels (`View`, `Create`, `Update`, …) and RoleResource chrome (`Save changes`, `Select All`, …) already come from filament-shield's own translated lang files independently of this addon.
 
 ---
 

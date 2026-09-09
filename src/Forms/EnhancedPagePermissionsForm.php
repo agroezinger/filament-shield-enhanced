@@ -2,28 +2,36 @@
 
 namespace Agroezinger\FilamentShieldEnhanced\Forms;
 
+use Agroezinger\FilamentShieldEnhanced\Support\NavigationGroupResolver;
 use Agroezinger\FilamentShieldEnhanced\Support\PagePermissionKeyBuilder;
+use BezhanSalleh\FilamentShield\Facades\FilamentShield;
 use Filament\Forms\Components\CheckboxList;
+use Filament\Pages\BasePage;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
-use Filament\Pages\BasePage;
+use Filament\Schemas\Components\Tabs;
+use Filament\Schemas\Components\Tabs\Tab;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
 /**
  * EnhancedPagePermissionsForm
  *
- * Builds the Filament form components for managing fine-grained page
- * permissions inside a published RoleResource. Each Page that declares
- * getShieldPagePermissions() gets its own Section with individual checkboxes.
+ * Builds the Filament form components for managing permissions of every
+ * Filament Page inside a published RoleResource: one Section per Page,
+ * combining the standard permission bezhansalleh/filament-shield derives
+ * for it with the fine-grained custom actions a Page may additionally
+ * declare via getShieldPagePermissions(). Sections are grouped into
+ * sub-tabs by the Page's own navigation group, in the order the panel
+ * declares its navigation groups.
  *
  * ---
  * Usage in a published RoleResource form schema:
  *
  *   use Agroezinger\FilamentShieldEnhanced\Forms\EnhancedPagePermissionsForm;
- *   use Filament\Forms\Components\Tabs;
  *
- *   Tabs\Tab::make(__('filament-shield::filament-shield.resources.tabs.pages'))
+ *   Tabs\Tab::make('pages')
+ *       ->label('Seiten')
  *       ->schema(EnhancedPagePermissionsForm::make()),
  * ---
  */
@@ -31,7 +39,8 @@ class EnhancedPagePermissionsForm
 {
     /**
      * Returns a map of CheckboxList field name => list of permission keys for
-     * every enhanced Page. Used to pre-fill the form in EditRole::mutateFormDataBeforeFill().
+     * every Page (standard + fine-grained combined). Used to pre-fill the
+     * form in EditRole::mutateFormDataBeforeFill().
      *
      * @return array<string, list<string>>
      */
@@ -39,38 +48,64 @@ class EnhancedPagePermissionsForm
     {
         $result = [];
 
-        foreach (static::discoverEnhancedPages() as $page) {
-            $fieldName          = 'page_permissions_' . Str::snake(class_basename($page['class']));
-            $result[$fieldName] = array_column($page['permissions'], 'key');
+        foreach (static::discoverPages() as $page) {
+            $fieldName          = static::fieldName($page['class']);
+            $result[$fieldName] = array_keys($page['options']);
         }
 
         return $result;
     }
 
     /**
-     * Returns an array of Filament form components (Grid > Sections > CheckboxLists)
-     * for every enhanced Page discovered in the application.
+     * Returns an array of Filament form components — one outer Tabs component
+     * with one inner Tab per navigation group, each containing a Grid of
+     * Page Sections — for every Page discovered in the application.
      *
-     * @return list<\Filament\Forms\Components\Component>
+     * @return list<\Filament\Schemas\Components\Component>
      */
     public static function make(): array
     {
-        $pages = static::discoverEnhancedPages();
+        $pages = static::discoverPages();
 
         if ($pages->isEmpty()) {
             return [];
         }
 
+        $groupOrder = NavigationGroupResolver::order();
+
         $gridColumns = config('filament-shield-enhanced.ui.grid_columns', [
             'default' => 1,
-            'sm' => 2,
-            'lg' => 3,
+            'sm'      => 2,
+            'lg'      => 3,
         ]);
 
-        $sections = $pages->map(fn(array $page) => static::buildSection($page))->all();
+        $groupTabs = $pages
+            ->groupBy(fn (array $page) => $page['navigationGroup'])
+            ->sortBy(function (Collection $group, string $label) use ($groupOrder): int {
+                $position = array_search($label, $groupOrder, true);
+
+                return $position === false ? count($groupOrder) : $position;
+            })
+            ->map(function (Collection $group, string $label) use ($gridColumns): Tab {
+                $sections = $group
+                    ->sortBy('navigationSort')
+                    ->map(fn (array $page) => static::buildSection($page))
+                    ->all();
+
+                return Tab::make(Str::slug($label !== '' ? $label : 'sonstige'))
+                    ->label($label !== '' ? $label : 'Sonstige')
+                    ->badge($group->count())
+                    ->schema([
+                        Grid::make($gridColumns)->schema($sections),
+                    ]);
+            })
+            ->values()
+            ->all();
 
         return [
-            Grid::make($gridColumns)->schema($sections),
+            Tabs::make('page_groups')
+                ->tabs($groupTabs)
+                ->columnSpanFull(),
         ];
     }
 
@@ -78,42 +113,33 @@ class EnhancedPagePermissionsForm
     // Section builder
     // -------------------------------------------------------------------------
 
-    protected static function buildSection(array $page): Section
+    public static function buildSection(array $page): Section
     {
         /** @var class-string<BasePage> $pageClass */
-        $pageClass = $page['class'];
-        $permissions = $page['permissions']; // [['key' => '...', 'label' => '...'], …]
-
-        $title = static::resolveSectionTitle($pageClass);
-
-        $options = collect($permissions)
-            ->mapWithKeys(fn(array $perm) => [$perm['key'] => $perm['label']])
-            ->all();
-
-        $descriptions = collect($permissions)
-            ->filter(fn(array $perm) => filled($perm['description']))
-            ->mapWithKeys(fn(array $perm) => [$perm['key'] => $perm['description']])
-            ->all();
+        $pageClass    = $page['class'];
+        $options      = $page['options'];
+        $descriptions = $page['descriptions'];
 
         $checkboxListColumns = config('filament-shield-enhanced.ui.checkbox_list_columns', [
             'default' => 1,
-            'sm' => 2,
+            'sm'      => 2,
         ]);
 
-        $checkboxList = CheckboxList::make('page_permissions_' . Str::snake(class_basename($pageClass)))
+        $checkboxList = CheckboxList::make(static::fieldName($pageClass))
             ->label('')
             ->options($options)
             ->columns($checkboxListColumns)
             ->gridDirection('row')
             ->bulkToggleable();
 
-        if (!empty($descriptions)) {
+        if (! empty($descriptions)) {
             $checkboxList->descriptions($descriptions);
         }
 
-        return Section::make($title)
+        return Section::make(static::resolveSectionTitle($pageClass))
             ->description(static::resolveSectionDescription($pageClass))
             ->compact()
+            ->collapsible()
             ->schema([$checkboxList]);
     }
 
@@ -122,48 +148,71 @@ class EnhancedPagePermissionsForm
     // -------------------------------------------------------------------------
 
     /**
-     * Discovers all Filament Page classes that declare getShieldPagePermissions()
-     * and resolves their permission keys + labels.
+     * Discovers every Page Filament Shield knows about and resolves its
+     * combined permission options (standard + fine-grained custom actions,
+     * if declared) plus the navigation group/sort used for grouping.
      *
-     * @return Collection<int, array{class: class-string, permissions: list<array{key: string, label: string}>}>
+     * @return Collection<int, array{
+     *     class: class-string,
+     *     options: array<string, string>,
+     *     descriptions: array<string, string>,
+     *     navigationGroup: string,
+     *     navigationSort: int,
+     * }>
      */
-    protected static function discoverEnhancedPages(): Collection
+    public static function discoverPages(): Collection
     {
-        $allPages = collect();
+        return collect(FilamentShield::getPages())
+            ->map(function (array $entity) {
+                /** @var class-string<BasePage> $pageClass */
+                $pageClass = $entity['pageFqcn'];
 
-        try {
-            $panels = \Filament\Facades\Filament::getPanels();
+                // Unlike resources (multiple affixes → list of ['key','label'] structs),
+                // filament-shield derives pages/widgets from a single string prefix, so
+                // $entity['permissions'] here is already the flat [key => label] map —
+                // one entry (typically 'view') per page.
+                $options = $entity['permissions'] ?? [];
 
-            foreach ($panels as $panel) {
-                foreach ($panel->getPages() as $pageClass) {
-                    if (
-                        is_subclass_of($pageClass, BasePage::class)
-                        && method_exists($pageClass, 'getShieldPagePermissions')
-                    ) {
-                        $allPages->push($pageClass);
+                $descriptions = [];
+
+                if (method_exists($pageClass, 'getShieldPagePermissions')) {
+                    foreach (static::resolvePermissionsForPage($pageClass) as $permission) {
+                        $options[$permission['key']] = $permission['label'];
+
+                        if (filled($permission['description'])) {
+                            $descriptions[$permission['key']] = $permission['description'];
+                        }
                     }
                 }
-            }
-        } catch (\Throwable) {
-            // Outside of a panel context (e.g. during unit testing).
-        }
 
-        return $allPages
-            ->unique()
-            ->map(fn(string $class) => [
-                'class' => $class,
-                'permissions' => static::resolvePermissionsForPage($class),
-            ])
-            ->filter(fn(array $page) => !empty($page['permissions']))
+                if (method_exists($pageClass, 'getShieldPermissionDescriptions')) {
+                    foreach ($pageClass::getShieldPermissionDescriptions() as $key => $description) {
+                        if (filled($description)) {
+                            $descriptions[$key] = __($description);
+                        }
+                    }
+                }
+
+                return [
+                    'class'           => $pageClass,
+                    'options'         => $options,
+                    'descriptions'    => $descriptions,
+                    'navigationGroup' => NavigationGroupResolver::labelFor($pageClass),
+                    'navigationSort'  => method_exists($pageClass, 'getNavigationSort')
+                        ? ($pageClass::getNavigationSort() ?? PHP_INT_MAX)
+                        : PHP_INT_MAX,
+                ];
+            })
+            ->filter(fn (array $page) => ! empty($page['options']))
             ->values();
     }
 
     /**
-     * Resolve permission key + human-readable label for each action declared
-     * by the given Page class.
+     * Resolve permission key + human-readable label for each fine-grained
+     * action declared by the given Page class via getShieldPagePermissions().
      *
      * @param  class-string  $pageClass
-     * @return list<array{key: string, label: string}>
+     * @return list<array{key: string, label: string, description: string|null}>
      */
     protected static function resolvePermissionsForPage(string $pageClass): array
     {
@@ -200,8 +249,10 @@ class EnhancedPagePermissionsForm
                     case: $case,
                     separator: $separator,
                 ),
-                'label'       => $label,
-                'description' => $description,
+                // __(): see EnhancedResourcePermissionsForm::resolvePermissionsForResource()
+                // for why literal labels/descriptions are routed through the translator.
+                'label'       => __($label),
+                'description' => $description !== null ? __($description) : null,
             ];
         }
 
@@ -222,10 +273,12 @@ class EnhancedPagePermissionsForm
     {
         $defaults = (new \ReflectionClass($pageClass))->getDefaultProperties();
 
-        return $defaults['navigationLabel']
+        $title = $defaults['navigationLabel']
             ?? $defaults['title']
             ?? $defaults['heading']
             ?? Str::headline(class_basename($pageClass));
+
+        return __($title);
     }
 
     /**
@@ -244,5 +297,10 @@ class EnhancedPagePermissionsForm
     protected static function humanizeAction(string $action): string
     {
         return Str::headline($action);
+    }
+
+    protected static function fieldName(string $pageClass): string
+    {
+        return 'page_permissions_' . Str::snake(class_basename($pageClass));
     }
 }

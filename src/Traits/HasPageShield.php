@@ -55,6 +55,19 @@ trait HasPageShield
         return ['view'];
     }
 
+    /**
+     * Optionally attach a help text to individual permission checkboxes on
+     * the Role form. Only override this where behaviour genuinely deviates
+     * from what the checkbox label implies. See HasResourceShield for the
+     * equivalent hook on Resources.
+     *
+     * @return array<string, string>
+     */
+    public static function getShieldPermissionDescriptions(): array
+    {
+        return [];
+    }
+
     // -------------------------------------------------------------------------
     // Access control
     // -------------------------------------------------------------------------
