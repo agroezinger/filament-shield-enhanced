@@ -504,7 +504,7 @@ public static function getShieldFormComponents(): \Filament\Schemas\Components\C
             ? $label
             : (array_search($label, $groupOrder, true) === false ? count($groupOrder) : array_search($label, $groupOrder, true)))
         ->map(fn (Collection $g, string $label) => Tab::make(Str::slug($label ?: 'misc'))
-            ->label($label ?: config('filament-shield-enhanced.ui.labels.misc_group', 'Sonstige'))
+            ->label($label ?: config('filament-shield-enhanced.ui.labels.misc_group', 'Miscellaneous'))
             ->badge($g->count())
             ->schema(static::buildCategorySchema($g)))
         ->values()
@@ -524,8 +524,8 @@ public static function getShieldFormComponents(): \Filament\Schemas\Components\C
 protected static function buildCategorySchema(Collection $entries): array
 {
     $labels = [
-        'resources' => config('filament-shield-enhanced.ui.labels.resources', 'Resources'),
-        'pages'     => config('filament-shield-enhanced.ui.labels.pages', 'Pages'),
+        'resources' => config('filament-shield-enhanced.ui.labels.resources', 'Management Areas'),
+        'pages'     => config('filament-shield-enhanced.ui.labels.pages', 'Function Pages'),
     ];
 
     $categories = collect($labels)
@@ -604,12 +604,13 @@ return [
 
         // End users configuring roles don't know what a Filament "Resource"
         // or "Page" is — override with labels that describe what the
-        // category lets someone DO.
+        // category lets someone DO. The defaults already avoid the raw
+        // Filament terms; treat them as a starting point, not a fixed set.
         'labels' => [
-            'resources'  => 'Resources',
-            'pages'      => 'Pages',
-            'widgets'    => 'Widgets',
-            'custom'     => 'Custom Permissions',
+            'resources'  => 'Management Areas',
+            'pages'      => 'Function Pages',
+            'widgets'    => 'Dashboard Widgets',
+            'custom'     => 'Other Permissions',
             'misc_group' => 'Miscellaneous',
         ],
     ],

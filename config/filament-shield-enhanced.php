@@ -113,11 +113,11 @@ return [
         */
 
         'labels' => [
-            'resources'  => 'Ressourcen',
-            'pages'      => 'Seiten',
-            'widgets'    => 'Widgets',
-            'custom'     => 'Sonstige Berechtigungen',
-            'misc_group' => 'Sonstiges',
+            'resources'  => 'Management Areas',
+            'pages'      => 'Function Pages',
+            'widgets'    => 'Dashboard Widgets',
+            'custom'     => 'Other Permissions',
+            'misc_group' => 'Miscellaneous',
         ],
     ],
 
